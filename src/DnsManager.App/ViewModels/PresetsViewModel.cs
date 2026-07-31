@@ -23,8 +23,22 @@ public sealed partial class PresetsViewModel : ObservableObject
         _store = store;
         _log = log;
         foreach (var preset in store.Load())
+        {
+            AttachSaveHandlers(preset);
             Presets.Add(preset);
+        }
         SelectedPreset = Presets.FirstOrDefault();
+    }
+
+    /// <summary>Автосохранение при изменении имени пресета или его серверов (добавление/удаление).</summary>
+    private void AttachSaveHandlers(DnsPreset preset)
+    {
+        preset.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DnsPreset.Name))
+                Save();
+        };
+        preset.Servers.CollectionChanged += (_, _) => Save();
     }
 
     [RelayCommand]
@@ -39,10 +53,11 @@ public sealed partial class PresetsViewModel : ObservableObject
                 DnsServerSetting.SecondaryProfile("8.8.4.4")
             ]
         };
+        AttachSaveHandlers(preset);
         Presets.Add(preset);
         SelectedPreset = preset;
         Save();
-        _log.Info(LogEvents.PresetCreate, $"Пресет «{preset.Name}» создан.", ("Preset", preset.Name));
+        _log.Info(LogEvents.PresetCreate, $"Пресет «{preset.Name}» создан. Двойной клик по названию — переименовать.", ("Preset", preset.Name));
     }
 
     [RelayCommand]

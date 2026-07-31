@@ -15,7 +15,7 @@ public class PowerShellCommandBuilderTests
         Assert.Contains("Set-DnsClientServerAddress -InterfaceIndex $idx -ServerAddresses $addrs", script);
         Assert.Contains("'111.88.96.50'", script);
         Assert.Contains("'111.88.96.51'", script);
-        // Предпочтительный: DoH вкл, «автоматический шаблон», fallback откл.
+        // Предпочтительный: DoH вкл, шаблон не указан → «автоматический шаблон» (DohFlags=1, AutoUpgrade=true).
         Assert.Contains("Add-DnsClientDohServerAddress -ServerAddress '111.88.96.50' -DohTemplate 'https://111.88.96.50/dns-query' -AllowFallbackToUdp $false -AutoUpgrade $true", script);
         // Шаблон в DohWellKnownServers (виден netsh/UI).
         Assert.Contains("New-ItemProperty -Path \"$wk\\111.88.96.50\" -Name 'Template' -Value 'https://111.88.96.50/dns-query' -PropertyType String", script);
@@ -27,7 +27,7 @@ public class PowerShellCommandBuilderTests
     }
 
     [Fact]
-    public void EnableManualScript_CustomTemplate_IsUsedAsIs()
+    public void EnableManualScript_CustomTemplate_IsUsedAsIs_WithManualMode()
     {
         var preset = new DnsPreset
         {
@@ -39,6 +39,9 @@ public class PowerShellCommandBuilderTests
 
         Assert.Contains("-DohTemplate 'https://cloudflare-dns.com/dns-query'", script);
         Assert.Contains("-AllowFallbackToUdp $true", script);
+        // Шаблон указан → «вручную»: DohFlags=2, AutoUpgrade=false.
+        Assert.Contains("-AutoUpgrade $false", script);
+        Assert.Contains("'DohFlags' -Value 2 -PropertyType Qword", script);
         Assert.DoesNotContain("https://1.1.1.1/dns-query", script);
     }
 
@@ -54,6 +57,9 @@ public class PowerShellCommandBuilderTests
         var script = PowerShellCommandBuilder.EnableManualScript(1, preset);
 
         Assert.Contains("-DohTemplate 'https://8.8.8.8/dns-query'", script);
+        // Шаблона нет → авто-шаблон: DohFlags=1, AutoUpgrade=true.
+        Assert.Contains("-AutoUpgrade $true", script);
+        Assert.Contains("'DohFlags' -Value 1 -PropertyType Qword", script);
     }
 
     [Fact]

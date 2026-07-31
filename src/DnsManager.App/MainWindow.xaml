@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:conv="clr-namespace:DnsManager.App.Converters"
         mc:Ignorable="d"
-        Title="DNS Manager" Height="720" Width="1020" MinHeight="560" MinWidth="820"
+        Title="DNS Manager" Height="720" Width="1020"
         WindowStartupLocation="CenterScreen" Icon="Assets/app.ico">
 
     <Window.Resources>
@@ -29,7 +29,9 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="12">
+    <!-- Viewbox: всё содержимое масштабируется пропорционально размеру окна -->
+    <Viewbox Stretch="Uniform">
+        <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -100,7 +102,8 @@
                         <TextBlock Text="DNS-профили" Style="{StaticResource SectionHeader}" />
                         <ListBox ItemsSource="{Binding Presets.Presets}"
                                  SelectedItem="{Binding Presets.SelectedPreset}"
-                                 DisplayMemberPath="Name" Height="200" />
+                                 DisplayMemberPath="Name" Height="200"
+                                 MouseDoubleClick="PresetsList_MouseDoubleClick" />
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <Button Content="Добавить" Command="{Binding Presets.AddPresetCommand}" Padding="10,4" />
                             <Button Content="Удалить" Command="{Binding Presets.DeletePresetCommand}"
@@ -115,12 +118,15 @@
                         <TextBlock Text="Редактор пресета" Style="{StaticResource SectionHeader}" />
                         <DockPanel Margin="0,0,0,8">
                             <TextBlock Text="Название:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <TextBox Text="{Binding Presets.SelectedPreset.Name, UpdateSourceTrigger=PropertyChanged}" Height="26" />
+                            <TextBox x:Name="PresetNameBox"
+                                     Text="{Binding Presets.SelectedPreset.Name, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="26" GotKeyboardFocus="PresetNameBox_GotKeyboardFocus" />
                         </DockPanel>
                         <DataGrid ItemsSource="{Binding Presets.SelectedPreset.Servers}"
                                   AutoGenerateColumns="False" CanUserAddRows="False" Height="180"
                                   HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                                  SelectionMode="Single">
+                                  SelectionMode="Single"
+                                  CellEditEnding="PresetsGrid_CellEditEnding">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Адрес" Binding="{Binding Address}" Width="*" />
                                 <DataGridCheckBoxColumn Header="DoH вкл" Binding="{Binding DohEnabled}" Width="80" />
@@ -141,8 +147,10 @@
                             <Button Content="Добавить сервер" Command="{Binding Presets.AddServerCommand}" Padding="10,4" />
                         </StackPanel>
                         <TextBlock TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,8,0,0">
-                            DoH: «включено (автоматический шаблон)» = галка DoH вкл без шаблона;
+                            DoH: «включено (автоматический шаблон)» = галка DoH вкл БЕЗ шаблона;
+                            «включено (вручную)» = галка DoH вкл + указан DoH-шаблон;
                             «возврат к обычному тексту откл» = снятая галка Fallback.
+                            Двойной клик по пресету — переименовать (сохраняется автоматически).
                         </TextBlock>
                     </StackPanel>
                 </Grid>
@@ -278,4 +286,5 @@
             </StatusBarItem>
         </StatusBar>
     </Grid>
+    </Viewbox>
 </Window>

@@ -275,7 +275,7 @@ public sealed partial class MainViewModel : ObservableObject
         var parts = state.Servers.Select(s =>
         {
             var doh = s.DohEnabled
-                ? $"DoH вкл, fallback {(s.AllowFallbackToUdp ? "вкл" : "откл")}"
+                ? $"DoH вкл ({(s.AutoUpgrade ? "авто-шаблон" : "вручную")}), fallback {(s.AllowFallbackToUdp ? "вкл" : "откл")}"
                 : "DoH выкл";
             return $"{s.Address} ({doh})";
         });
