@@ -169,8 +169,8 @@
                             <Button Content="Добавить сервер" Command="{Binding Presets.AddServerCommand}" Padding="10,4" />
                         </StackPanel>
                         <TextBlock Grid.Row="4" TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,8,0,0">
-                            DoH: «включено (автоматический шаблон)» = галка DoH вкл БЕЗ шаблона;
-                            «включено (вручную)» = галка DoH вкл + указан DoH-шаблон;
+                            DoH: «включено (автоматический шаблон)» = галка DoH вкл;
+                            DoH-шаблон (необязательно) — если указан, используется как эндпоинт DoH;
                             «возврат к обычному тексту откл» = снятая галка Fallback.
                             Двойной клик по пресету — переименовать (сохраняется автоматически).
                         </TextBlock>

@@ -27,7 +27,7 @@ public class PowerShellCommandBuilderTests
     }
 
     [Fact]
-    public void EnableManualScript_CustomTemplate_IsUsedAsIs_WithManualMode()
+    public void EnableManualScript_CustomTemplate_IsUsedAsIs_WithAutoMode()
     {
         var preset = new DnsPreset
         {
@@ -37,11 +37,13 @@ public class PowerShellCommandBuilderTests
 
         var script = PowerShellCommandBuilder.EnableManualScript(1, preset);
 
+        // Указанный шаблон используется как DoH-эндпоинт.
         Assert.Contains("-DohTemplate 'https://cloudflare-dns.com/dns-query'", script);
         Assert.Contains("-AllowFallbackToUdp $true", script);
-        // Шаблон указан → «вручную»: DohFlags=2, AutoUpgrade=false.
-        Assert.Contains("-AutoUpgrade $false", script);
-        Assert.Contains("'DohFlags' -Value 2 -PropertyType Qword", script);
+        // UI-режим всегда «включено (автоматический шаблон)»: DohFlags=1, AutoUpgrade=true
+        // (DohFlags=2 «вручную» на этой сборке Windows показывает «Выключено»).
+        Assert.Contains("-AutoUpgrade $true", script);
+        Assert.Contains("'DohFlags' -Value 1 -PropertyType Qword", script);
         Assert.DoesNotContain("https://1.1.1.1/dns-query", script);
     }
 

@@ -72,12 +72,13 @@ public static class PowerShellCommandBuilder
         {
             if (server.DohEnabled)
             {
-                // Шаблон указан → «вручную» (DohFlags=2, AutoUpgrade=false);
-                // не указан → «автоматический шаблон» = https://<ip>/dns-query (DohFlags=1, AutoUpgrade=true).
-                var isManual = !string.IsNullOrEmpty(server.DohTemplate);
-                var template = isManual ? server.DohTemplate! : $"https://{server.Address}/dns-query";
-                var autoUpgrade = isManual ? "$false" : "$true";
-                var dohFlags = isManual ? 2 : 1;
+                // ВАЖНО: на этой сборке Windows DohFlags=2 («вручную») показывает «Выключено».
+                // Поэтому всегда используем DohFlags=1 (авто-шаблон) — как HotCakeX/WinSecureDNSMgr:
+                // шаблон добавляется в предустановленный список, UI показывает «включено (автоматический шаблон)»,
+                // а указанный пользователем шаблон используется как DoH-эндпоинт.
+                var template = string.IsNullOrEmpty(server.DohTemplate)
+                    ? $"https://{server.Address}/dns-query"
+                    : server.DohTemplate;
                 var fallback = server.AllowFallbackToUdp ? "$true" : "$false";
 
                 // Шаблон в DohWellKnownServers — виден Settings UI (netsh dns show encryption).
@@ -85,11 +86,11 @@ public static class PowerShellCommandBuilder
                 sb.Append($"New-ItemProperty -Path \"$wk\\{server.Address}\" -Name 'Template' -Value '{template}' -PropertyType String -Force | Out-Null;");
 
                 // Официальный метод: запись как предустановленного DoH-провайдера (есть — Set, нет — Add).
-                sb.Append($"try {{ Add-DnsClientDohServerAddress -ServerAddress '{server.Address}' -DohTemplate '{template}' -AllowFallbackToUdp {fallback} -AutoUpgrade {autoUpgrade} -ErrorAction Stop }} catch {{ Set-DnsClientDohServerAddress -ServerAddress '{server.Address}' -DohTemplate '{template}' -AllowFallbackToUdp {fallback} -AutoUpgrade {autoUpgrade} }};");
+                sb.Append($"try {{ Add-DnsClientDohServerAddress -ServerAddress '{server.Address}' -DohTemplate '{template}' -AllowFallbackToUdp {fallback} -AutoUpgrade $true -ErrorAction Stop }} catch {{ Set-DnsClientDohServerAddress -ServerAddress '{server.Address}' -DohTemplate '{template}' -AllowFallbackToUdp {fallback} -AutoUpgrade $true }};");
 
-                // Привязка DoH к интерфейсу: DohFlags=1 авто-шаблон, 2 вручную — читает Settings UI.
+                // Привязка DoH к интерфейсу: DohFlags=1 (авто-шаблон) — именно это читает Settings UI.
                 sb.Append($"New-Item -Path \"$dohKey\\{server.Address}\" -Force | Out-Null;");
-                sb.Append($"New-ItemProperty -Path \"$dohKey\\{server.Address}\" -Name 'DohFlags' -Value {dohFlags} -PropertyType Qword -Force | Out-Null;");
+                sb.Append($"New-ItemProperty -Path \"$dohKey\\{server.Address}\" -Name 'DohFlags' -Value 1 -PropertyType Qword -Force | Out-Null;");
             }
             else
             {
