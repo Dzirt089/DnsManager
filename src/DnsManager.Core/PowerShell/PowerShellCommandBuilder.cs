@@ -39,11 +39,15 @@ public static class PowerShellCommandBuilder
         {
             if (server.DohEnabled)
             {
-                var template = string.IsNullOrEmpty(server.DohTemplate) ? "" : $" -DohTemplate '{server.DohTemplate}'";
+                // «Автоматический шаблон» = https://<ip>/dns-query. Для неизвестных провайдеров
+                // Windows требует явный -DohTemplate, иначе Add/Set падают с InvalidArgument.
+                var template = string.IsNullOrEmpty(server.DohTemplate)
+                    ? $"https://{server.Address}/dns-query"
+                    : server.DohTemplate;
                 // DoH-команды работают глобально по ServerAddress: если запись есть — Set, иначе — Add.
                 sb.Append($"$doh=Get-DnsClientDohServerAddress -ServerAddress '{server.Address}' -ErrorAction SilentlyContinue;");
-                sb.Append($"if($doh){{Set-DnsClientDohServerAddress -ServerAddress '{server.Address}' -AutoUpgrade $true -AllowFallbackToUdp {Bool(server.AllowFallbackToUdp)}{template}}}");
-                sb.Append($"else{{Add-DnsClientDohServerAddress -ServerAddress '{server.Address}' -AutoUpgrade $true -AllowFallbackToUdp {Bool(server.AllowFallbackToUdp)}{template}}};");
+                sb.Append($"if($doh){{Set-DnsClientDohServerAddress -ServerAddress '{server.Address}' -DohTemplate '{template}' -AutoUpgrade $true -AllowFallbackToUdp {Bool(server.AllowFallbackToUdp)}}}");
+                sb.Append($"else{{Add-DnsClientDohServerAddress -ServerAddress '{server.Address}' -DohTemplate '{template}' -AutoUpgrade $true -AllowFallbackToUdp {Bool(server.AllowFallbackToUdp)}}};");
             }
             else
             {

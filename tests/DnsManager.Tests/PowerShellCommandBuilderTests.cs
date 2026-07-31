@@ -15,16 +15,16 @@ public class PowerShellCommandBuilderTests
         Assert.Contains("Set-DnsClientServerAddress -InterfaceIndex $idx -ServerAddresses $addrs", script);
         Assert.Contains("'111.88.96.50'", script);
         Assert.Contains("'111.88.96.51'", script);
-        // Предпочтительный: DoH вкл, авто-шаблон (без -DohTemplate), fallback откл.
+        // Предпочтительный: DoH вкл, «автоматический шаблон» (https://<ip>/dns-query), fallback откл.
         // Запись есть -> Set; записи нет -> Add.
-        Assert.Contains("Set-DnsClientDohServerAddress -ServerAddress '111.88.96.50' -AutoUpgrade $true -AllowFallbackToUdp $false", script);
-        Assert.Contains("Add-DnsClientDohServerAddress -ServerAddress '111.88.96.50' -AutoUpgrade $true -AllowFallbackToUdp $false", script);
+        Assert.Contains("Set-DnsClientDohServerAddress -ServerAddress '111.88.96.50' -DohTemplate 'https://111.88.96.50/dns-query' -AutoUpgrade $true -AllowFallbackToUdp $false", script);
+        Assert.Contains("Add-DnsClientDohServerAddress -ServerAddress '111.88.96.50' -DohTemplate 'https://111.88.96.50/dns-query' -AutoUpgrade $true -AllowFallbackToUdp $false", script);
         // Дополнительный: без DoH — удаляем устаревшую запись.
         Assert.Contains("Remove-DnsClientDohServerAddress -ServerAddress '111.88.96.51'", script);
     }
 
     [Fact]
-    public void EnableManualScript_CustomTemplate_AddsDohTemplate()
+    public void EnableManualScript_CustomTemplate_IsUsedAsIs()
     {
         var preset = new DnsPreset
         {
@@ -36,6 +36,22 @@ public class PowerShellCommandBuilderTests
 
         Assert.Contains("-DohTemplate 'https://cloudflare-dns.com/dns-query'", script);
         Assert.Contains("-AllowFallbackToUdp $true", script);
+        // Свой шаблон не подменяется «автоматическим».
+        Assert.DoesNotContain("https://1.1.1.1/dns-query", script);
+    }
+
+    [Fact]
+    public void EnableManualScript_NoTemplate_ExpandsToAutoDnsQuery()
+    {
+        var preset = new DnsPreset
+        {
+            Name = "Auto",
+            Servers = [new DnsServerSetting { Address = "8.8.8.8", DohEnabled = true }]
+        };
+
+        var script = PowerShellCommandBuilder.EnableManualScript(1, preset);
+
+        Assert.Contains("-DohTemplate 'https://8.8.8.8/dns-query'", script);
     }
 
     [Fact]
