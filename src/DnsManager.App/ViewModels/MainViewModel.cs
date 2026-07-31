@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -8,6 +9,7 @@ using DnsManager.App.ViewModels;
 using DnsManager.Core.Logging;
 using DnsManager.Core.Models;
 using DnsManager.Core.Services;
+using Microsoft.Win32;
 
 namespace DnsManager.App.ViewModels;
 
@@ -93,7 +95,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         IsBusy = true;
         StatusBarText = "Загрузка адаптеров...";
-        _log.Info("Запрос списка сетевых адаптеров...");
+        _log.Info(LogEvents.AdaptersLoad, "Запрос списка сетевых адаптеров...");
         try
         {
             var adapters = await _network.GetAdaptersAsync(ct);
@@ -102,12 +104,13 @@ public sealed partial class MainViewModel : ObservableObject
                 Adapters.Add(adapter);
 
             SelectedAdapter = adapters.FirstOrDefault(a => a.IsActive) ?? Adapters.FirstOrDefault();
-            _log.Info($"Найдено адаптеров: {adapters.Count} (активных: {adapters.Count(a => a.IsActive)})");
+            _log.Info(LogEvents.AdaptersResult, $"Найдено адаптеров: {adapters.Count} (активных: {adapters.Count(a => a.IsActive)})",
+                ("Total", adapters.Count), ("Active", adapters.Count(a => a.IsActive)));
             StatusBarText = "Адаптеры загружены";
         }
         catch (Exception ex)
         {
-            _log.Error($"Не удалось получить адаптеры: {ex.Message}", ex);
+            _log.Error(LogEvents.AdaptersResult, $"Не удалось получить адаптеры: {ex.Message}", ex);
             StatusBarText = "Ошибка загрузки адаптеров";
         }
         finally
@@ -120,7 +123,8 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task EnableDnsAsync(CancellationToken ct)
     {
         var preset = Presets.SelectedPreset ?? DnsPreset.Default();
-        _log.Info($"Пользователь нажал «Включить DNS» (пресет «{preset.Name}»).");
+        _log.Info(LogEvents.DnsEnable, "Пользователь нажал «Включить DNS».",
+            ("Preset", preset.Name), ("Adapter", SelectedAdapter?.Name ?? ""));
         await ApplyPresetCoreAsync(preset, ct);
     }
 
@@ -148,7 +152,8 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task ApplyPresetAsync(CancellationToken ct)
     {
         var preset = Presets.SelectedPreset ?? DnsPreset.Default();
-        _log.Info($"Пользователь применил пресет «{preset.Name}».");
+        _log.Info(LogEvents.DnsApplyPreset, "Пользователь применил пресет.",
+            ("Preset", preset.Name), ("Adapter", SelectedAdapter?.Name ?? ""));
         await ApplyPresetCoreAsync(preset, ct);
     }
 
@@ -182,11 +187,10 @@ public sealed partial class MainViewModel : ObservableObject
             var state = await _dns.GetStateAsync(SelectedAdapter, ct);
             DnsStateText = FormatDnsState(state);
             UpdateNetworkInfo();
-            _log.Info($"Состояние DNS на «{SelectedAdapter.Name}»: {(state.IsDhcp ? "автоматически (DHCP)" : FormatDnsState(state))}");
         }
         catch (Exception ex)
         {
-            _log.Error($"Не удалось прочитать состояние DNS: {ex.Message}", ex);
+            _log.Error(LogEvents.DnsReadState, $"Не удалось прочитать состояние DNS: {ex.Message}", ex);
             DnsStateText = "Ошибка чтения";
         }
     }
@@ -195,11 +199,55 @@ public sealed partial class MainViewModel : ObservableObject
     private void ToggleAutostart()
     {
         _autostart.SetEnabled(IsAutostartEnabled);
-        _log.Info(IsAutostartEnabled ? "Автозапуск при входе в Windows включён." : "Автозапуск при входе в Windows выключен.");
+        _log.Info(LogEvents.AutostartToggle,
+            IsAutostartEnabled ? "Автозапуск при входе в Windows включён." : "Автозапуск при входе в Windows выключен.",
+            ("Enabled", IsAutostartEnabled));
     }
 
     [RelayCommand]
-    private void ClearLogs() => Logs.Clear();
+    private void ClearLogs()
+    {
+        Logs.Clear();
+        _log.Info(LogEvents.LogClear, "Лог очищен.");
+    }
+
+    /// <summary>Экспорт текущего лога в файл (структурный JSON или текстовый).</summary>
+    [RelayCommand]
+    private void SaveLogs()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Сохранить лог",
+            Filter = "JSON (структурный)|*.json|Текстовый файл (*.txt)|*.txt",
+            FileName = $"dnsmanager-log-{DateTime.Now:yyyyMMdd-HHmmss}.json",
+            AddExtension = true
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var entries = Logs.ToList();
+        try
+        {
+            if (dialog.FilterIndex == 2)
+            {
+                File.WriteAllLines(dialog.FileName,
+                    entries.Select(e => $"{e.DisplayTimestamp} [{e.LevelText}] {e.Message}"));
+            }
+            else
+            {
+                File.WriteAllText(dialog.FileName, LogEntrySerializer.ToJsonArray(entries));
+            }
+
+            _log.Info(LogEvents.LogExport, $"Лог сохранён в {dialog.FileName}",
+                ("Path", dialog.FileName), ("Entries", entries.Count));
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogEvents.LogExport, $"Не удалось сохранить лог: {ex.Message}", ex,
+                ("Path", dialog.FileName));
+        }
+    }
 
     private void UpdateNetworkInfo()
     {

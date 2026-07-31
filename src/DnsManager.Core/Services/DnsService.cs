@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using DnsManager.Core.Logging;
 using DnsManager.Core.Models;
@@ -20,14 +21,19 @@ public sealed class DnsService : IDnsService
     public async Task<bool> EnableManualAsync(NetworkAdapterInfo adapter, DnsPreset preset, CancellationToken ct = default)
     {
         var script = PowerShellCommandBuilder.EnableManualScript(adapter.InterfaceIndex, preset);
-        var result = await RunLoggedAsync(script, $"Включение ручного DNS ({preset.Name}) на «{adapter.Name}»", ct);
+        var result = await RunLoggedAsync(script, LogEvents.DnsEnable,
+            $"Включение ручного DNS ({preset.Name}) на «{adapter.Name}»", ct,
+            ("Adapter", adapter.Name), ("InterfaceIndex", adapter.InterfaceIndex),
+            ("Preset", preset.Name), ("Servers", preset.Servers.Count));
         return result.IsSuccess;
     }
 
     public async Task<bool> DisableToDhcpAsync(NetworkAdapterInfo adapter, CancellationToken ct = default)
     {
         var script = PowerShellCommandBuilder.DisableToDhcpScript(adapter.InterfaceIndex);
-        var result = await RunLoggedAsync(script, $"Возврат DNS в режим DHCP (автоматически) на «{adapter.Name}»", ct);
+        var result = await RunLoggedAsync(script, LogEvents.DnsDisable,
+            $"Возврат DNS в режим DHCP (автоматически) на «{adapter.Name}»", ct,
+            ("Adapter", adapter.Name), ("InterfaceIndex", adapter.InterfaceIndex));
         return result.IsSuccess;
     }
 
@@ -52,6 +58,11 @@ public sealed class DnsService : IDnsService
                 : new DnsServerState { Address = addr, DohEnabled = false })
             .ToList();
 
+        _log.Info(LogEvents.DnsReadState,
+            $"Состояние DNS на «{adapter.Name}»: {(states.Count == 0 ? "DHCP" : string.Join(", ", states.Select(s => s.Address)))}",
+            ("Adapter", adapter.Name), ("InterfaceIndex", adapter.InterfaceIndex),
+            ("Dhcp", states.Count == 0), ("Servers", states.Count));
+
         return new DnsState
         {
             InterfaceAlias = adapter.Name,
@@ -60,9 +71,12 @@ public sealed class DnsService : IDnsService
         };
     }
 
-    private async Task<PowerShellResult> RunLoggedAsync(string script, string action, CancellationToken ct)
+    private async Task<PowerShellResult> RunLoggedAsync(string script, string eventName, string action,
+        CancellationToken ct, params (string Key, object? Value)[] baseProps)
     {
-        _log.Info($"{action}...");
+        var sw = Stopwatch.StartNew();
+        _log.Info(eventName, $"{action}...", baseProps);
+
         PowerShellResult result;
         try
         {
@@ -70,15 +84,19 @@ public sealed class DnsService : IDnsService
         }
         catch (Exception ex)
         {
-            _log.Error($"{action} — ошибка выполнения: {ex.Message}", ex);
+            sw.Stop();
+            _log.Error(eventName, $"{action} — ошибка выполнения: {ex.Message}", ex,
+                ("DurationMs", sw.ElapsedMilliseconds));
             return new PowerShellResult(-1, "", ex.Message);
         }
 
-        _log.Debug($"Команда: {script}");
+        sw.Stop();
+        var props = baseProps.Concat([("ExitCode", result.ExitCode), ("DurationMs", sw.ElapsedMilliseconds)]).ToArray();
+        _log.Debug(LogEvents.App, $"Команда: {script}");
         if (result.IsSuccess)
-            _log.Info($"{action} — успешно. Вывод: {Trim(result.StdOut)}");
+            _log.Info(eventName, $"{action} — успешно. Вывод: {Trim(result.StdOut)}", props);
         else
-            _log.Error($"{action} — ОШИБКА (exit {result.ExitCode}). {Trim(result.StdErr)}");
+            _log.Error(eventName, $"{action} — ОШИБКА (exit {result.ExitCode}). {Trim(result.StdErr)}", null, props);
         return result;
     }
 

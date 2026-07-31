@@ -227,8 +227,9 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <DockPanel Grid.Row="0" Margin="0,0,0,4">
+                    <Button DockPanel.Dock="Right" Content="Сохранить лог..." Command="{Binding SaveLogsCommand}" Padding="10,2" Margin="8,0,0,0" />
                     <Button DockPanel.Dock="Right" Content="Очистить" Command="{Binding ClearLogsCommand}" Padding="10,2" />
-                    <TextBlock Text="{Binding Logs.Count, StringFormat='Записей: {0}'}" Foreground="Gray" />
+                    <TextBlock Text="{Binding Logs.Count, StringFormat='Записей: {0}'}" Foreground="Gray" VerticalAlignment="Center" />
                 </DockPanel>
                 <ListBox Grid.Row="1" ItemsSource="{Binding Logs}" x:Name="LogList"
                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -236,20 +237,20 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock TextWrapping="NoWrap">
-                                <Run Text="{Binding Timestamp, Mode=OneWay}" Foreground="Gray" />
+                                <Run Text="{Binding DisplayTimestamp, Mode=OneWay}" Foreground="Gray" />
                                 <Run Text=" " />
-                                <Run Text="{Binding Level, Mode=OneWay}" FontWeight="Bold">
+                                <Run Text="{Binding LevelText, Mode=OneWay}" FontWeight="Bold">
                                     <Run.Style>
                                         <Style TargetType="Run">
                                             <Setter Property="Foreground" Value="#333" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Level}" Value="ERROR">
+                                                <DataTrigger Binding="{Binding LevelText}" Value="ERROR">
                                                     <Setter Property="Foreground" Value="#C42B1C" />
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding Level}" Value="WARN">
+                                                <DataTrigger Binding="{Binding LevelText}" Value="WARN">
                                                     <Setter Property="Foreground" Value="#B8860B" />
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding Level}" Value="DEBUG">
+                                                <DataTrigger Binding="{Binding LevelText}" Value="DEBUG">
                                                     <Setter Property="Foreground" Value="#888" />
                                                 </DataTrigger>
                                             </Style.Triggers>
@@ -258,6 +259,7 @@
                                 </Run>
                                 <Run Text=" " />
                                 <Run Text="{Binding Message, Mode=OneWay}" />
+                                <Run Text="{Binding PropertiesText, Mode=OneWay}" Foreground="#777" />
                             </TextBlock>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

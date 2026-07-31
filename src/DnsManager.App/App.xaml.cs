@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using DnsManager.App.Logging;
 using DnsManager.App.Services;
 using DnsManager.App.ViewModels;
+using DnsManager.Core.Logging;
 using DnsManager.Core.PowerShell;
 using DnsManager.Core.Services;
 using Hardcodet.Wpf.TaskbarNotification;
@@ -40,7 +41,7 @@ public partial class App : Application
         _window.Show();
 
         SetupTray();
-        _log.Info("Приложение запущено. Требуются права администратора.");
+        _log.Info(LogEvents.AppStartup, "Приложение запущено. Требуются права администратора.");
 
         // Первичная загрузка адаптеров.
         _ = _vm.RefreshAdaptersCommand.ExecuteAsync(null);

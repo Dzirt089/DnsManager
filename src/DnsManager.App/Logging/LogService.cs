@@ -5,7 +5,10 @@ using DnsManager.Core.Logging;
 
 namespace DnsManager.App.Logging;
 
-/// <summary>Логирование в панель UI (ObservableCollection) и файл %LOCALAPPDATA%\DnsManager\logs\.</summary>
+/// <summary>
+/// Структурное логирование: панель UI (ObservableCollection) + файл JSON Lines
+/// (%LOCALAPPDATA%\DnsManager\logs\app-yyyyMMdd.jsonl).
+/// </summary>
 public sealed class LogService : ILogService, IDisposable
 {
     private const int MaxUiEntries = 500;
@@ -20,40 +23,65 @@ public sealed class LogService : ILogService, IDisposable
     {
         var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DnsManager", "logs");
         Directory.CreateDirectory(dir);
-        LogFilePath = Path.Combine(dir, $"app-{DateTime.Now:yyyyMMdd}.log");
+        LogFilePath = Path.Combine(dir, $"app-{DateTime.Now:yyyyMMdd}.jsonl");
         _writer = new StreamWriter(LogFilePath, append: true) { AutoFlush = true };
-        Info("Лог начат.");
+        Info(LogEvents.AppStartup, "Лог начат.");
     }
 
-    public void Info(string message) => Add("INFO", message, null);
-    public void Warn(string message) => Add("WARN", message, null);
-    public void Debug(string message) => Add("DEBUG", message, null);
-    public void Error(string message, Exception? exception = null) => Add("ERROR", message, exception);
-
-    private void Add(string level, string message, Exception? exception)
+    public void Log(LogLevel level, string eventName, string message,
+                    IReadOnlyDictionary<string, object?>? properties = null,
+                    Exception? exception = null)
     {
-        var full = exception is null ? message : $"{message} {exception}";
+        var entry = new LogEntry
+        {
+            Timestamp = DateTimeOffset.Now,
+            Level = level,
+            Event = string.IsNullOrEmpty(eventName) ? LogEvents.App : eventName,
+            Message = message,
+            Properties = properties is { Count: > 0 } ? properties : null,
+            Exception = exception?.ToString()
+        };
+
         lock (_sync)
         {
-            _writer.WriteLine($"[{DateTime.Now:HH:mm:ss}] [{level}] {full}");
+            _writer.WriteLine(LogEntrySerializer.ToJsonLine(entry));
         }
 
         if (Application.Current?.Dispatcher is { } dispatcher)
-            dispatcher.BeginInvoke(() => AddUi(level, full));
+            dispatcher.BeginInvoke(() => AddUi(entry));
     }
 
-    private void AddUi(string level, string full)
+    public void Info(string message) => Log(LogLevel.Info, LogEvents.App, message);
+    public void Info(string eventName, string message, params (string Key, object? Value)[] properties) =>
+        Log(LogLevel.Info, eventName, message, ToDict(properties));
+
+    public void Warn(string message) => Log(LogLevel.Warn, LogEvents.App, message);
+    public void Warn(string eventName, string message, params (string Key, object? Value)[] properties) =>
+        Log(LogLevel.Warn, eventName, message, ToDict(properties));
+
+    public void Error(string message, Exception? exception = null) => Log(LogLevel.Error, LogEvents.App, message, exception: exception);
+    public void Error(string eventName, string message, Exception? exception = null, params (string Key, object? Value)[] properties) =>
+        Log(LogLevel.Error, eventName, message, ToDict(properties), exception);
+
+    public void Debug(string message) => Log(LogLevel.Debug, LogEvents.App, message);
+    public void Debug(string eventName, string message, params (string Key, object? Value)[] properties) =>
+        Log(LogLevel.Debug, eventName, message, ToDict(properties));
+
+    private void AddUi(LogEntry entry)
     {
-        Entries.Add(new LogEntry(DateTime.Now.ToString("HH:mm:ss"), level, full));
+        Entries.Add(entry);
         while (Entries.Count > MaxUiEntries)
             Entries.RemoveAt(0);
     }
+
+    private static IReadOnlyDictionary<string, object?>? ToDict((string Key, object? Value)[] properties) =>
+        properties.Length == 0 ? null : properties.ToDictionary(p => p.Key, p => p.Value);
 
     public void Dispose()
     {
         lock (_sync)
         {
-            Info("Лог завершён.");
+            Info(LogEvents.AppExit, "Лог завершён.");
             _writer.Dispose();
         }
     }

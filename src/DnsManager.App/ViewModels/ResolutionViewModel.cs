@@ -37,15 +37,17 @@ public sealed partial class ResolutionViewModel : ObservableObject
         try
         {
             var hosts = DomainsText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            _log.Info(LogEvents.ResolveRun, $"Запуск теста резолвинга ({hosts.Length} доменов)", ("Hosts", hosts.Length));
             foreach (var host in hosts)
             {
-                _log.Info($"Резолвинг {host}...");
                 var result = await _resolver.ResolveAsync(host, ct);
                 Results.Add(result);
-                if (result.Success)
-                    _log.Info($"{host} -> {string.Join(", ", result.Addresses)} ({result.ElapsedMs} мс)");
-                else
-                    _log.Warn($"{host} — не разрешён: {result.Error} ({result.ElapsedMs} мс)");
+                _log.Info(LogEvents.ResolveResult,
+                    result.Success
+                        ? $"{host} -> {string.Join(", ", result.Addresses)} ({result.ElapsedMs} мс)"
+                        : $"{host} — не разрешён: {result.Error} ({result.ElapsedMs} мс)",
+                    ("Host", host), ("Success", result.Success),
+                    ("DurationMs", result.ElapsedMs), ("Addresses", result.AddressesText));
             }
         }
         finally

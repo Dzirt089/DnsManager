@@ -42,7 +42,7 @@ public sealed partial class PresetsViewModel : ObservableObject
         Presets.Add(preset);
         SelectedPreset = preset;
         Save();
-        _log.Info($"Пресет «{preset.Name}» создан.");
+        _log.Info(LogEvents.PresetCreate, $"Пресет «{preset.Name}» создан.", ("Preset", preset.Name));
     }
 
     [RelayCommand]
@@ -53,7 +53,7 @@ public sealed partial class PresetsViewModel : ObservableObject
         Presets.Remove(preset);
         SelectedPreset = Presets.FirstOrDefault();
         Save();
-        _log.Info($"Пресет «{preset.Name}» удалён.");
+        _log.Info(LogEvents.PresetDelete, $"Пресет «{preset.Name}» удалён.", ("Preset", preset.Name));
     }
 
     [RelayCommand]

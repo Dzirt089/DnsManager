@@ -41,19 +41,24 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         try
         {
             var servers = ServersText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            _log.Info(LogEvents.BenchmarkRun, $"Запуск бенчмарка ({servers.Length} серверов)", ("Servers", servers.Length));
             foreach (var server in servers)
             {
                 StatusText = $"Тестирую {server}...";
-                _log.Info($"Бенчмарк сервера {server}...");
                 try
                 {
                     var result = await _benchmark.BenchmarkAsync(server, DnsBenchmarkService.DefaultDomains, 3, ct);
                     Results.Add(result);
-                    _log.Info($"Бенчмарк {server}: успешно {result.SuccessfulQueries}/{result.TotalQueries}, avg {result.AvgMs} мс, потери {result.LossPercent:F1}%");
+                    _log.Info(LogEvents.BenchmarkResult,
+                        $"Бенчмарк {server}: успешно {result.SuccessfulQueries}/{result.TotalQueries}, avg {result.AvgMs} мс, потери {result.LossPercent:F1}%",
+                        ("Server", server), ("Success", result.SuccessfulQueries),
+                        ("Total", result.TotalQueries), ("AvgMs", result.AvgMs),
+                        ("LossPercent", result.LossPercent));
                 }
                 catch (Exception ex)
                 {
-                    _log.Error($"Бенчмарк {server} — ошибка: {ex.Message}", ex);
+                    _log.Error(LogEvents.BenchmarkResult, $"Бенчмарк {server} — ошибка: {ex.Message}", ex,
+                        ("Server", server));
                 }
             }
 
