@@ -31,22 +31,24 @@ public class DnsServiceTests
     }
 
     [Fact]
-    public void ParseDohServers_FromWellKnownRegistry()
+    public void ParseDohServers_FromInterfaceSettings()
     {
         const string json = """
             [
-              { "ServerAddress": "111.88.96.50", "DohTemplate": "https://111.88.96.50/dns-query" },
-              { "ServerAddress": "8.8.8.8", "DohTemplate": "https://dns.google/dns-query" }
+              { "ServerAddress": "111.88.96.50", "DohTemplate": "https://111.88.96.50/dns-query", "DohFlags": 1 },
+              { "ServerAddress": "8.8.8.8", "DohTemplate": "https://dns.google/dns-query", "DohFlags": 2 }
             ]
             """;
 
         var result = DnsService.ParseDohServers(json);
 
         Assert.Equal(2, result.Count);
-        var server = result.First(s => s.Address == "111.88.96.50");
-        Assert.True(server.DohEnabled);
-        Assert.True(server.AutoUpgrade);
-        Assert.Equal("https://111.88.96.50/dns-query", server.DohTemplate);
+        var auto = result.First(s => s.Address == "111.88.96.50");
+        Assert.True(auto.DohEnabled);
+        Assert.True(auto.AutoUpgrade); // DohFlags=1 → авто-шаблон
+        Assert.Equal("https://111.88.96.50/dns-query", auto.DohTemplate);
+        var manual = result.First(s => s.Address == "8.8.8.8");
+        Assert.False(manual.AutoUpgrade); // DohFlags=2 → вручную
     }
 
     [Fact]

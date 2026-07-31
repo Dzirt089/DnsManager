@@ -15,11 +15,15 @@ public class PowerShellCommandBuilderTests
         Assert.Contains("Set-DnsClientServerAddress -InterfaceIndex $idx -ServerAddresses $addrs", script);
         Assert.Contains("'111.88.96.50'", script);
         Assert.Contains("'111.88.96.51'", script);
-        // Предпочтительный: DoH вкл, «автоматический шаблон» (https://<ip>/dns-query), fallback откл.
-        Assert.Contains("netsh dns add encryption server='111.88.96.50' dohtemplate='https://111.88.96.50/dns-query' autoupgrade=yes udpfallback=no", script);
-        Assert.Contains("netsh dns set encryption server='111.88.96.50' dohtemplate='https://111.88.96.50/dns-query' autoupgrade=yes udpfallback=no", script);
-        // Дополнительный: без DoH — удаляем запись из списка secure-резолверов.
-        Assert.Contains("netsh dns delete encryption server='111.88.96.51'", script);
+        // Предпочтительный: DoH вкл, «автоматический шаблон», fallback откл.
+        Assert.Contains("Add-DnsClientDohServerAddress -ServerAddress '111.88.96.50' -DohTemplate 'https://111.88.96.50/dns-query' -AllowFallbackToUdp $false -AutoUpgrade $true", script);
+        // Шаблон в DohWellKnownServers (виден netsh/UI).
+        Assert.Contains("New-ItemProperty -Path \"$wk\\111.88.96.50\" -Name 'Template' -Value 'https://111.88.96.50/dns-query' -PropertyType String", script);
+        // Привязка к интерфейсу: DohFlags=1 (авто-шаблон) — читает Settings UI.
+        Assert.Contains("New-ItemProperty -Path \"$dohKey\\111.88.96.50\" -Name 'DohFlags' -Value 1 -PropertyType Qword", script);
+        // Дополнительный: без DoH — убираем привязку и записи.
+        Assert.Contains("Remove-Item \"$dohKey\\111.88.96.51\"", script);
+        Assert.Contains("Remove-DnsClientDohServerAddress -ServerAddress '111.88.96.51'", script);
     }
 
     [Fact]
@@ -33,9 +37,8 @@ public class PowerShellCommandBuilderTests
 
         var script = PowerShellCommandBuilder.EnableManualScript(1, preset);
 
-        Assert.Contains("dohtemplate='https://cloudflare-dns.com/dns-query'", script);
-        Assert.Contains("udpfallback=yes", script);
-        // Свой шаблон не подменяется «автоматическим».
+        Assert.Contains("-DohTemplate 'https://cloudflare-dns.com/dns-query'", script);
+        Assert.Contains("-AllowFallbackToUdp $true", script);
         Assert.DoesNotContain("https://1.1.1.1/dns-query", script);
     }
 
@@ -50,29 +53,30 @@ public class PowerShellCommandBuilderTests
 
         var script = PowerShellCommandBuilder.EnableManualScript(1, preset);
 
-        Assert.Contains("dohtemplate='https://8.8.8.8/dns-query'", script);
+        Assert.Contains("-DohTemplate 'https://8.8.8.8/dns-query'", script);
     }
 
     [Fact]
-    public void DisableToDhcpScript_ResetsServersAndRemovesDohOfInterface()
+    public void DisableToDhcpScript_RemovesDohAndResetsServers()
     {
         var script = PowerShellCommandBuilder.DisableToDhcpScript(7);
 
         Assert.Contains("$idx=7", script);
-        // Удаляет DoH (netsh delete) для адресов этого интерфейса, затем сброс в DHCP.
+        // Удаляет DoH (реестр + CIM) для адресов этого интерфейса, затем сброс в DHCP.
         Assert.Contains("Get-DnsClientServerAddress -AddressFamily IPv4 -InterfaceIndex $idx -ErrorAction SilentlyContinue).ServerAddresses", script);
-        Assert.Contains("netsh dns delete encryption server=$addr", script);
+        Assert.Contains("Remove-Item \"$dohKey\\$addr\"", script);
+        Assert.Contains("Remove-DnsClientDohServerAddress -ServerAddress $addr", script);
         Assert.Contains("Set-DnsClientServerAddress -InterfaceIndex $idx -ResetServerAddresses", script);
     }
 
     [Fact]
     public void GetStateScripts_UseCorrectSources()
     {
-        // DNS-серверы интерфейса — по индексу.
         Assert.Contains("-InterfaceIndex 42", PowerShellCommandBuilder.GetDnsServersScript(42));
-        // Статическая настройка — по реестру NameServer.
         Assert.Contains("$idx=42", PowerShellCommandBuilder.GetStaticDnsScript(42));
-        // DoH читается из DohWellKnownServers (реестр) — источник Settings UI.
-        Assert.Contains("DohWellKnownServers", PowerShellCommandBuilder.GetDohServersScript());
+        // DoH читается из per-interface DohInterfaceSettings (источник Settings UI).
+        var doh = PowerShellCommandBuilder.GetDohServersScript(42);
+        Assert.Contains("DohInterfaceSettings", doh);
+        Assert.Contains("$idx=42", doh);
     }
 }

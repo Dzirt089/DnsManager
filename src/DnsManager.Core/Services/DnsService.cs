@@ -40,7 +40,7 @@ public sealed class DnsService : IDnsService
     public async Task<DnsState> GetStateAsync(NetworkAdapterInfo adapter, CancellationToken ct = default)
     {
         var serversJson = (await _runner.RunAsync(PowerShellCommandBuilder.GetDnsServersScript(adapter.InterfaceIndex), ct)).StdOut;
-        var dohJson = (await _runner.RunAsync(PowerShellCommandBuilder.GetDohServersScript(), ct)).StdOut;
+        var dohJson = (await _runner.RunAsync(PowerShellCommandBuilder.GetDohServersScript(adapter.InterfaceIndex), ct)).StdOut;
         var staticJson = (await _runner.RunAsync(PowerShellCommandBuilder.GetStaticDnsScript(adapter.InterfaceIndex), ct)).StdOut;
 
         var servers = ParseDnsServers(serversJson);
@@ -148,7 +148,7 @@ public sealed class DnsService : IDnsService
         }
     }
 
-    /// <summary>DoH-серверы из DohWellKnownServers (реестр): адрес + шаблон. autoupgrade=yes мы ставим всегда.</summary>
+    /// <summary>DoH-серверы интерфейса из DohInterfaceSettings\Doh: адрес, шаблон, DohFlags (1 = авто-шаблон).</summary>
     internal static List<DnsServerState> ParseDohServers(string json)
     {
         if (string.IsNullOrWhiteSpace(json)) return [];
@@ -162,11 +162,12 @@ public sealed class DnsService : IDnsService
             {
                 if (item.ValueKind != JsonValueKind.Object)
                     continue;
+                var flags = GetInt(item, "DohFlags");
                 result.Add(new DnsServerState
                 {
                     Address = GetStr(item, "ServerAddress"),
                     DohEnabled = true,
-                    AutoUpgrade = true,
+                    AutoUpgrade = flags == 1,
                     AllowFallbackToUdp = true,
                     DohTemplate = GetStrOrNull(item, "DohTemplate")
                 });
@@ -178,6 +179,9 @@ public sealed class DnsService : IDnsService
             return [];
         }
     }
+
+    private static int GetInt(JsonElement item, string prop) =>
+        item.TryGetProperty(prop, out var el) && el.ValueKind == JsonValueKind.Number ? el.GetInt32() : 0;
 
     private static string GetStr(JsonElement item, string prop) =>
         item.TryGetProperty(prop, out var el) && el.ValueKind == JsonValueKind.String ? el.GetString() ?? "" : "";
