@@ -31,23 +31,37 @@ public class DnsServiceTests
     }
 
     [Fact]
-    public void ParseDohServers_MapsFlags()
+    public void ParseDohServers_FromWellKnownRegistry()
     {
         const string json = """
-            {
-              "ServerAddress": "111.88.96.50",
-              "DohTemplate": "",
-              "AutoUpgrade": true,
-              "AllowFallbackToUdp": false
-            }
+            [
+              { "ServerAddress": "111.88.96.50", "DohTemplate": "https://111.88.96.50/dns-query" },
+              { "ServerAddress": "8.8.8.8", "DohTemplate": "https://dns.google/dns-query" }
+            ]
             """;
 
         var result = DnsService.ParseDohServers(json);
 
-        var server = Assert.Single(result);
-        Assert.Equal("111.88.96.50", server.Address);
+        Assert.Equal(2, result.Count);
+        var server = result.First(s => s.Address == "111.88.96.50");
         Assert.True(server.DohEnabled);
         Assert.True(server.AutoUpgrade);
-        Assert.False(server.AllowFallbackToUdp);
+        Assert.Equal("https://111.88.96.50/dns-query", server.DohTemplate);
+    }
+
+    [Fact]
+    public void ParseDohServers_EmptyJson_ReturnsEmpty()
+    {
+        Assert.Empty(DnsService.ParseDohServers(""));
+        Assert.Empty(DnsService.ParseDohServers("null"));
+    }
+
+    [Fact]
+    public void ParseStaticDns_DetectsStaticVsDhcp()
+    {
+        Assert.True(DnsService.ParseStaticDns("""{"StaticDns":true}"""));
+        Assert.False(DnsService.ParseStaticDns("""{"StaticDns":false}"""));
+        Assert.False(DnsService.ParseStaticDns(""));
+        Assert.False(DnsService.ParseStaticDns("not json"));
     }
 }

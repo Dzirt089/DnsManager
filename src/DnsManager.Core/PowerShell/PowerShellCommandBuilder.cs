@@ -21,11 +21,26 @@ public static class PowerShellCommandBuilder
     public static string GetDnsServersScript(int interfaceIndex) =>
         Preamble + $"Get-DnsClientServerAddress -AddressFamily IPv4 -InterfaceIndex {interfaceIndex} | Select-Object InterfaceAlias,InterfaceIndex,ServerAddresses | ConvertTo-Json -Compress";
 
-    /// <summary>Текущие DoH-настройки интерфейса.</summary>
-    public static string GetDohServersScript(int interfaceIndex) =>
-        Preamble + $"Get-DnsClientDohServerAddress -InterfaceIndex {interfaceIndex} -ErrorAction SilentlyContinue | Select-Object InterfaceAlias,InterfaceIndex,ServerAddress,DohTemplate,AutoUpgrade,AllowFallbackToUdp | ConvertTo-Json -Compress";
+    /// <summary>
+    /// Настроены ли DNS статически (реестровый NameServer пуст при DHCP).
+    /// Используется для корректного определения режима DHCP vs ручной.
+    /// </summary>
+    public static string GetStaticDnsScript(int interfaceIndex) =>
+        Preamble +
+        $"$idx={interfaceIndex};" +
+        "$guid=(Get-NetAdapter -InterfaceIndex $idx -ErrorAction SilentlyContinue).InterfaceGuid;" +
+        "$ns=(Get-ItemProperty \"HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces\\$guid\" -Name NameServer -ErrorAction SilentlyContinue).NameServer;" +
+        "[PSCustomObject]@{ StaticDns = ![string]::IsNullOrEmpty($ns) } | ConvertTo-Json -Compress";
 
-    /// <summary>Включить ручной DNS-профиль (пресет) с DoH-настройками.</summary>
+    /// <summary>
+    /// DoH-серверы из DohWellKnownServers (реестр) — именно этот список читает
+    /// Settings UI (netsh dns show encryption). CIM-команды *-DnsClientDohServerAddress
+    /// пишут в другой стор и не отображаются в UI, поэтому не используются.
+    /// </summary>
+    public static string GetDohServersScript() =>
+        Preamble + "Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Dnscache\\Parameters\\DohWellKnownServers' -ErrorAction SilentlyContinue | ForEach-Object { [PSCustomObject]@{ ServerAddress=$_.PSChildName; DohTemplate=$_.GetValue('Template') } } | ConvertTo-Json -Compress";
+
+    /// <summary>Включить ручной DNS-профиль (пресет) с DoH-настройками (netsh dns add/set/delete encryption).</summary>
     public static string EnableManualScript(int interfaceIndex, DnsPreset preset)
     {
         var sb = new StringBuilder(Preamble);
@@ -39,21 +54,20 @@ public static class PowerShellCommandBuilder
         {
             if (server.DohEnabled)
             {
-                // «Автоматический шаблон» = https://<ip>/dns-query. Для неизвестных провайдеров
-                // Windows требует явный -DohTemplate, иначе Add/Set падают с InvalidArgument.
+                // «Автоматический шаблон» = https://<ip>/dns-query; явный шаблон пользователя не трогаем.
                 var template = string.IsNullOrEmpty(server.DohTemplate)
                     ? $"https://{server.Address}/dns-query"
                     : server.DohTemplate;
-                // DoH-команды работают глобально по ServerAddress: если запись есть — Set, иначе — Add.
-                sb.Append($"$doh=Get-DnsClientDohServerAddress -ServerAddress '{server.Address}' -ErrorAction SilentlyContinue;");
-                sb.Append($"if($doh){{Set-DnsClientDohServerAddress -ServerAddress '{server.Address}' -DohTemplate '{template}' -AutoUpgrade $true -AllowFallbackToUdp {Bool(server.AllowFallbackToUdp)}}}");
-                sb.Append($"else{{Add-DnsClientDohServerAddress -ServerAddress '{server.Address}' -DohTemplate '{template}' -AutoUpgrade $true -AllowFallbackToUdp {Bool(server.AllowFallbackToUdp)}}};");
+                var fallback = server.AllowFallbackToUdp ? "yes" : "no";
+                // netsh пишет в DohWellKnownServers — то, что видит Settings UI.
+                // Если запись уже есть (add не прошёл) — обновляем через set.
+                sb.Append($"netsh dns add encryption server='{server.Address}' dohtemplate='{template}' autoupgrade=yes udpfallback={fallback} *> $null;");
+                sb.Append($"if ($LASTEXITCODE -ne 0) {{ netsh dns set encryption server='{server.Address}' dohtemplate='{template}' autoupgrade=yes udpfallback={fallback} *> $null; if ($LASTEXITCODE -ne 0) {{ throw \"DoH: не удалось настроить '{server.Address}' (netsh $LASTEXITCODE)\" }} }};");
             }
             else
             {
-                // Сервер без DoH: удаляем устаревшую DoH-запись, если была.
-                sb.Append($"$doh=Get-DnsClientDohServerAddress -ServerAddress '{server.Address}' -ErrorAction SilentlyContinue;");
-                sb.Append($"if($doh){{Remove-DnsClientDohServerAddress -ServerAddress '{server.Address}'}};");
+                // Сервер без DoH: удаляем запись из списка secure-резолверов (если была).
+                sb.Append($"netsh dns delete encryption server='{server.Address}' *> $null;");
             }
         }
 
@@ -66,8 +80,7 @@ public static class PowerShellCommandBuilder
         Preamble +
         $"$idx={interfaceIndex};" +
         "foreach($addr in (Get-DnsClientServerAddress -AddressFamily IPv4 -InterfaceIndex $idx -ErrorAction SilentlyContinue).ServerAddresses){ " +
-        "$doh=Get-DnsClientDohServerAddress -ServerAddress $addr -ErrorAction SilentlyContinue; " +
-        "if($doh){Remove-DnsClientDohServerAddress -ServerAddress $addr} }; " +
+        "netsh dns delete encryption server=$addr *> $null }; " +
         "Set-DnsClientServerAddress -InterfaceIndex $idx -ResetServerAddresses; " +
         "'OK'";
 

@@ -40,10 +40,12 @@ public sealed class DnsService : IDnsService
     public async Task<DnsState> GetStateAsync(NetworkAdapterInfo adapter, CancellationToken ct = default)
     {
         var serversJson = (await _runner.RunAsync(PowerShellCommandBuilder.GetDnsServersScript(adapter.InterfaceIndex), ct)).StdOut;
-        var dohJson = (await _runner.RunAsync(PowerShellCommandBuilder.GetDohServersScript(adapter.InterfaceIndex), ct)).StdOut;
+        var dohJson = (await _runner.RunAsync(PowerShellCommandBuilder.GetDohServersScript(), ct)).StdOut;
+        var staticJson = (await _runner.RunAsync(PowerShellCommandBuilder.GetStaticDnsScript(adapter.InterfaceIndex), ct)).StdOut;
 
         var servers = ParseDnsServers(serversJson);
         var dohByAddress = ParseDohServers(dohJson).ToDictionary(d => d.Address);
+        var isDhcp = !ParseStaticDns(staticJson);
 
         var states = servers
             .Select(addr => dohByAddress.TryGetValue(addr, out var doh)
@@ -59,16 +61,31 @@ public sealed class DnsService : IDnsService
             .ToList();
 
         _log.Info(LogEvents.DnsReadState,
-            $"Состояние DNS на «{adapter.Name}»: {(states.Count == 0 ? "DHCP" : string.Join(", ", states.Select(s => s.Address)))}",
+            $"Состояние DNS на «{adapter.Name}»: {(isDhcp ? "DHCP" : string.Join(", ", states.Select(s => s.Address)))}",
             ("Adapter", adapter.Name), ("InterfaceIndex", adapter.InterfaceIndex),
-            ("Dhcp", states.Count == 0), ("Servers", states.Count));
+            ("Dhcp", isDhcp), ("Servers", states.Count));
 
         return new DnsState
         {
             InterfaceAlias = adapter.Name,
-            IsDhcp = states.Count == 0,
+            IsDhcp = isDhcp,
             Servers = states
         };
+    }
+
+    /// <summary>Реестровый NameServer: пуст при DHCP, содержит IP при статической настройке.</summary>
+    internal static bool ParseStaticDns(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("StaticDns", out var el) &&
+                   el.ValueKind == JsonValueKind.True;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private async Task<PowerShellResult> RunLoggedAsync(string script, string eventName, string action,
@@ -131,6 +148,7 @@ public sealed class DnsService : IDnsService
         }
     }
 
+    /// <summary>DoH-серверы из DohWellKnownServers (реестр): адрес + шаблон. autoupgrade=yes мы ставим всегда.</summary>
     internal static List<DnsServerState> ParseDohServers(string json)
     {
         if (string.IsNullOrWhiteSpace(json)) return [];
@@ -148,8 +166,8 @@ public sealed class DnsService : IDnsService
                 {
                     Address = GetStr(item, "ServerAddress"),
                     DohEnabled = true,
-                    AutoUpgrade = GetBool(item, "AutoUpgrade"),
-                    AllowFallbackToUdp = GetBool(item, "AllowFallbackToUdp", true),
+                    AutoUpgrade = true,
+                    AllowFallbackToUdp = true,
                     DohTemplate = GetStrOrNull(item, "DohTemplate")
                 });
             }
