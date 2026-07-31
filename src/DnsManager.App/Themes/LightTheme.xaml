@@ -1,0 +1,38 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- Маркер для поиска словаря темы при переключении -->
+    <sys:String x:Key="ThemeName">Light</sys:String>
+
+    <!-- Общие -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="WindowForegroundBrush" Color="#1A1A1A" />
+    <SolidColorBrush x:Key="TextBrush" Color="#1A1A1A" />
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#5A5A5A" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#777777" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#0078D4" />
+    <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="InfoBoxBackground" Color="#F0F6FF" />
+    <SolidColorBrush x:Key="InfoBoxBorderBrush" Color="#0078D4" />
+    <SolidColorBrush x:Key="SplitterBrush" Color="#DDDDDD" />
+    <SolidColorBrush x:Key="ErrorTextBrush" Color="#C42B1C" />
+    <SolidColorBrush x:Key="WarnTextBrush" Color="#B8860B" />
+    <SolidColorBrush x:Key="DebugTextBrush" Color="#888888" />
+
+    <!-- Контролы -->
+    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ControlBorderBrush" Color="#CCCCCC" />
+    <SolidColorBrush x:Key="ControlHoverBrush" Color="#F3F3F3" />
+    <SolidColorBrush x:Key="GroupBoxBorderBrush" Color="#DDDDDD" />
+    <SolidColorBrush x:Key="TabBackgroundBrush" Color="#F7F7F7" />
+    <SolidColorBrush x:Key="TabSelectedBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="DataGridHeaderBackgroundBrush" Color="#F5F5F5" />
+    <SolidColorBrush x:Key="DataGridGridLineBrush" Color="#E3E3E3" />
+    <SolidColorBrush x:Key="ScrollBarTrackBrush" Color="#F0F0F0" />
+    <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#C8C8C8" />
+    <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#A8A8A8" />
+    <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#F5F5F5" />
+    <SolidColorBrush x:Key="ProgressTrackBrush" Color="#E6E6E6" />
+    <SolidColorBrush x:Key="ProgressIndicatorBrush" Color="#0078D4" />
+</ResourceDictionary>

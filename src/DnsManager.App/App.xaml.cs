@@ -5,6 +5,7 @@ using DnsManager.App.Logging;
 using DnsManager.App.Services;
 using DnsManager.App.ViewModels;
 using DnsManager.Core.Logging;
+using DnsManager.Core.Models;
 using DnsManager.Core.PowerShell;
 using DnsManager.Core.Services;
 using Hardcodet.Wpf.TaskbarNotification;
@@ -17,11 +18,18 @@ public partial class App : Application
     private MainViewModel? _vm;
     private LogService? _log;
     private TaskbarIcon? _tray;
+    private UiSettings _uiSettings = new();
+    private UiSettingsStore? _uiSettingsStore;
     private bool _isExiting;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Настройки окна и тема — до создания окна, чтобы применить размеры и кисти при первом рендере.
+        _uiSettingsStore = new UiSettingsStore();
+        _uiSettings = _uiSettingsStore.Load();
+        ThemeManager.Apply(_uiSettings.Theme);
 
         // Composition root (без DI-контейнера — приложение небольшое).
         _log = new LogService();
@@ -36,7 +44,7 @@ public partial class App : Application
         _vm = new MainViewModel(networkService, dnsService, _log, new AutostartService(),
             presetsVm, resolutionVm, benchmarkVm);
 
-        _window = new MainWindow { DataContext = _vm };
+        _window = new MainWindow(_uiSettings, _uiSettingsStore) { DataContext = _vm };
         _window.Closing += OnWindowClosing;
         _window.Show();
 
@@ -98,6 +106,7 @@ public partial class App : Application
     private void ExitApp()
     {
         _isExiting = true;
+        _window?.SaveSettings();
         _tray?.Dispose();
         _log?.Dispose();
         Shutdown();

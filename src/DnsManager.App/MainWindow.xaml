@@ -6,17 +6,19 @@
         xmlns:conv="clr-namespace:DnsManager.App.Converters"
         mc:Ignorable="d"
         Title="DNS Manager" Height="760" Width="1100" MinHeight="620" MinWidth="980"
-        WindowStartupLocation="CenterScreen" Icon="Assets/app.ico">
+        WindowStartupLocation="CenterScreen" Icon="Assets/app.ico"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource WindowForegroundBrush}">
 
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <Style x:Key="PrimaryButton" TargetType="Button">
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Padding" Value="16,8" />
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Margin" Value="0,0,8,0" />
-            <Setter Property="Background" Value="#0078D4" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
         </Style>
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="15" />
@@ -27,8 +29,9 @@
             <Setter Property="Padding" Value="12" />
             <Setter Property="Margin" Value="0,0,0,10" />
         </Style>
-        <!-- Общий стиль DataGrid: колонки можно раздвигать, при нехватке места — скролл -->
-        <Style x:Key="ResizableGrid" TargetType="DataGrid">
+        <!-- Общий стиль DataGrid: колонки можно раздвигать, при нехватке места — скролл.
+             BasedOn на implicit-стиль темы, чтобы не терять тёмный фон/текст. -->
+        <Style x:Key="ResizableGrid" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
             <Setter Property="CanUserResizeColumns" Value="True" />
             <Setter Property="CanUserResizeRows" Value="False" />
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
@@ -42,18 +45,27 @@
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition x:Name="DnsPanelRow" Height="190" MinHeight="120" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="240" MinHeight="140" />
+            <RowDefinition x:Name="LogPanelRow" Height="240" MinHeight="140" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Заголовок -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Text="DNS Manager" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
-            <TextBlock Text="Windows 11" Margin="10,4,0,0" Foreground="Gray" VerticalAlignment="Center" />
-        </StackPanel>
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="DNS Manager" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
+                <TextBlock Text="Windows 11" Margin="10,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+            <Button Grid.Column="1" x:Name="ThemeButton" Content="Тёмная тема" Padding="10,4"
+                    VerticalAlignment="Center" Click="ThemeButton_Click" />
+        </Grid>
 
         <!-- Панель управления DNS -->
         <GroupBox Grid.Row="1" Header="Управление DNS" Style="{StaticResource GroupBoxCard}">
@@ -75,13 +87,13 @@
                                   DisplayMemberPath="Name"
                                   VerticalContentAlignment="Center" Height="30" />
                     </DockPanel>
-                    <TextBlock Text="{Binding NetworkInfoText}" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#444" />
+                    <TextBlock Text="{Binding NetworkInfoText}" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" />
                 </StackPanel>
 
                 <!-- Текущее состояние -->
                 <StackPanel Grid.Column="1" Margin="0,0,16,0">
                     <TextBlock Text="Текущий DNS:" Style="{StaticResource SectionHeader}" />
-                    <Border Background="#F0F6FF" BorderBrush="#0078D4" BorderThickness="1" CornerRadius="4" Padding="8">
+                    <Border Background="{DynamicResource InfoBoxBackground}" BorderBrush="{DynamicResource InfoBoxBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="8">
                         <TextBlock Text="{Binding DnsStateText}" TextWrapping="Wrap" FontWeight="Medium" />
                     </Border>
                 </StackPanel>
@@ -98,11 +110,12 @@
         </GroupBox>
 
         <!-- Вкладки -->
-        <TabControl Grid.Row="2">
+        <TabControl Grid.Row="3">
             <TabItem Header="Пресеты">
                 <Grid Margin="8">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="240" MinWidth="180" />
+                        <ColumnDefinition x:Name="PresetListColumn" Width="240" MinWidth="180" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
@@ -125,11 +138,17 @@
                                     CommandParameter="{Binding Presets.SelectedPreset}" Padding="10,4" Margin="8,0,0,0" />
                         </StackPanel>
                         <TextBlock Grid.Row="3" Text="Минимум один пресет. Изменения сохраняются автоматически."
-                                   TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,8,0,0" />
+                                   TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" Margin="0,8,0,0" />
                     </Grid>
 
+                    <!-- Разделитель ширины списка профилей -->
+                    <GridSplitter Grid.Column="1" Width="6" Margin="0,0,12,0"
+                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                  ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
+                                  DragCompleted="Splitter_DragCompleted" />
+
                     <!-- Редактор -->
-                    <Grid Grid.Column="1">
+                    <Grid Grid.Column="2">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -168,7 +187,7 @@
                         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
                             <Button Content="Добавить сервер" Command="{Binding Presets.AddServerCommand}" Padding="10,4" />
                         </StackPanel>
-                        <TextBlock Grid.Row="4" TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,8,0,0">
+                        <TextBlock Grid.Row="4" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" Margin="0,8,0,0">
                             DoH: «включено (автоматический шаблон)» = галка DoH вкл;
                             DoH-шаблон (необязательно) — если указан, используется как эндпоинт DoH;
                             «возврат к обычному тексту откл» = снятая галка Fallback.
@@ -230,7 +249,7 @@
                             <DataGridTextColumn Header="Макс, мс" Binding="{Binding MaxMs}" Width="80" MinWidth="60" />
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock Grid.Row="2" Text="{Binding Benchmark.StatusText}" Margin="0,6,0,0" Foreground="#444" />
+                    <TextBlock Grid.Row="2" Text="{Binding Benchmark.StatusText}" Margin="0,6,0,0" Foreground="{DynamicResource SecondaryTextBrush}" />
                 </Grid>
             </TabItem>
 
@@ -241,7 +260,7 @@
                               IsChecked="{Binding IsAutostartEnabled}"
                               Command="{Binding ToggleAutostartCommand}"
                               Margin="0,4,0,12" />
-                    <TextBlock TextWrapping="Wrap" Foreground="Gray" FontSize="12">
+                    <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12">
                         Приложение требует прав администратора и будет сворачиваться в системный трей при закрытии окна.
                         Выход — через меню иконки в трее.
                     </TextBlock>
@@ -249,13 +268,20 @@
             </TabItem>
         </TabControl>
 
-        <!-- Разделитель: тянет высоту лога -->
-        <GridSplitter Grid.Row="3" Height="6" Margin="0,2,0,2"
+        <!-- Разделитель: высота панели управления DNS -->
+        <GridSplitter Grid.Row="2" Height="6" Margin="0,2,0,2"
                       HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                      Background="#DDD" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
+                      ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                      DragCompleted="Splitter_DragCompleted" />
+
+        <!-- Разделитель: тянет высоту лога -->
+        <GridSplitter Grid.Row="4" Height="6" Margin="0,2,0,2"
+                      HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                      ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                      DragCompleted="Splitter_DragCompleted" />
 
         <!-- Лог -->
-        <GroupBox Grid.Row="4" Header="Лог действий и ответов системы" Style="{StaticResource GroupBoxCard}" Margin="0,0,0,0">
+        <GroupBox Grid.Row="5" Header="Лог действий и ответов системы" Style="{StaticResource GroupBoxCard}" Margin="0,0,0,0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -264,7 +290,7 @@
                 <DockPanel Grid.Row="0" Margin="0,0,0,4">
                     <Button DockPanel.Dock="Right" Content="Сохранить лог..." Command="{Binding SaveLogsCommand}" Padding="10,2" Margin="8,0,0,0" />
                     <Button DockPanel.Dock="Right" Content="Очистить" Command="{Binding ClearLogsCommand}" Padding="10,2" />
-                    <TextBlock Text="{Binding Logs.Count, StringFormat='Записей: {0}'}" Foreground="Gray" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Logs.Count, StringFormat='Записей: {0}'}" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" />
                 </DockPanel>
                 <ListBox Grid.Row="1" ItemsSource="{Binding Logs}" x:Name="LogList"
                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -272,21 +298,21 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock TextWrapping="NoWrap">
-                                <Run Text="{Binding DisplayTimestamp, Mode=OneWay}" Foreground="Gray" />
+                                <Run Text="{Binding DisplayTimestamp, Mode=OneWay}" Foreground="{DynamicResource SecondaryTextBrush}" />
                                 <Run Text=" " />
                                 <Run Text="{Binding LevelText, Mode=OneWay}" FontWeight="Bold">
                                     <Run.Style>
                                         <Style TargetType="Run">
-                                            <Setter Property="Foreground" Value="#333" />
+                                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding LevelText}" Value="ERROR">
-                                                    <Setter Property="Foreground" Value="#C42B1C" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource ErrorTextBrush}" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding LevelText}" Value="WARN">
-                                                    <Setter Property="Foreground" Value="#B8860B" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource WarnTextBrush}" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding LevelText}" Value="DEBUG">
-                                                    <Setter Property="Foreground" Value="#888" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource DebugTextBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -294,7 +320,7 @@
                                 </Run>
                                 <Run Text=" " />
                                 <Run Text="{Binding Message, Mode=OneWay}" />
-                                <Run Text="{Binding PropertiesText, Mode=OneWay}" Foreground="#777" />
+                                <Run Text="{Binding PropertiesText, Mode=OneWay}" Foreground="{DynamicResource MutedTextBrush}" />
                             </TextBlock>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -303,7 +329,7 @@
         </GroupBox>
 
         <!-- Статусбар -->
-        <StatusBar Grid.Row="5">
+        <StatusBar Grid.Row="6">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusBarText}" />
             </StatusBarItem>
