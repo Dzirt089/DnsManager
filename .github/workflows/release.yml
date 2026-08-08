@@ -40,6 +40,31 @@ jobs:
             -p:Version=$version `
             -o publish
 
+        # --- НОВЫЙ БЛОК: ПОДПИСЬ ЧЕРЕЗ SIGNPATH
+      - name: Sign files via SignPath
+        shell: pwsh
+        env:
+          SIGNPATH API TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        run: |
+          # 1. Пакуем файлы в архив
+          Compress-Archive -Path publish\* -DestinationPath app.zip
+
+          # 2. Устанавливаем официальный PowerShell модуль SignPath
+          Install-Module -Name SignPath -Force -AcceptLicense
+
+          # 3. Отправляем архив на подпись (ID взяты с вашего скриншота)
+          Submit-SigningRequest `
+            -InputArtifactPath "app.zip" `
+            -ApiToken $env:SIGNPATH API TOKEN `
+            -OrganizationId "c178b524-ba4d-4ce6-909f-e8c68ce1ba69" `
+            -ProjectSlug "dnsmanager" `
+            -SigningPolicySlug "GitHub_Actions_Policy" `
+            -OutputArtifactPath "signed_app.zip" `
+            -WaitForCompletion
+
+          # 4. Распаковываем подписанные файлы в новую папку
+          Expand-Archive -Path signed app.zip -DestinationPath publish_signed -Force
+
       - name: Install Velopack CLI
         run: dotnet tool install --global vpk
 
@@ -54,7 +79,7 @@ jobs:
           vpk pack `
             --packId "DnsManager.App" `
             --packVersion $version `
-            --packDir publish `
+            --packDir publish_signed `
             --mainExe "DnsManager.App.exe" `
             --outputDir releases `
             --icon "src/DnsManager.App/Assets/app.ico"
