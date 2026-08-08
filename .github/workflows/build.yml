@@ -1,0 +1,45 @@
+name: .Net WPF Build
+
+on:
+  push:
+    branches: ["main", "master"] # При любом пуше в эти ветки или PR
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    # Шаг 1: Скачиваем исходный код на VM GitHub
+    - name: Chekout repository
+      uses: actions/checkout@v4
+
+    # Шаг 2: Устанавливаем нужную версию
+    - name: Setup .Net
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    # Шаг 3: Восстанавливаем зависимости (NuGet пакеты)
+    - name: Restore dependencies
+      run: dotnet restore
+
+    # Шаг 4: Собираем проект, чтобы убедится - нет ли ошибок компиляции
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+
+    # Шаг 5: Публикация (создание готового .exe файла)
+    # Здесь вам нужно указать путь к вашему главному .csproj файлу (вместо src/DnsManager/DnsManager.csproj
+    # Параметры:
+    # -r win-x64 : собираем под 64-битную Windows
+    # --self-contained true : включает в себя весь .NET (юзеру не нужно скачивать .NET 10 для запуска)
+    # -p:PublishSingleFile=true: упаковывает все dll и сам exe в один единственный файл!
+    - name: Publish
+      run: dotnet publish src/DnsManager.App/DnsManager.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish_output
+
+    # Шаг 6: Загружаем результат (артефакт), чтобы можно было скачать его с сайта GiHub
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DnsManager-Portable-Win64
+        path: ./publish_output/
+    
