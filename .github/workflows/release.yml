@@ -55,7 +55,7 @@ jobs:
           # 3. Отправляем архив на подпись (ID взяты с вашего скриншота)
           Submit-SigningRequest `
             -InputArtifactPath "app.zip" `
-            -ApiToken $env:SIGNPATH API TOKEN `
+            -ApiToken $env:SIGNPATH_API_TOKEN `
             -OrganizationId "c178b524-ba4d-4ce6-909f-e8c68ce1ba69" `
             -ProjectSlug "dnsmanager" `
             -SigningPolicySlug "GitHub_Actions_Policy" `
