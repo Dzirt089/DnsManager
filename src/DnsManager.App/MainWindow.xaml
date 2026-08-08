@@ -260,8 +260,10 @@
                               IsChecked="{Binding IsAutostartEnabled}"
                               Command="{Binding ToggleAutostartCommand}"
                               Margin="0,4,0,12" />
-					<CheckBox Content="Проверить обновление"
+					<Button Content="Проверить обновление"
                               Command="{Binding CheckForUpdateCommand}"
+                              Width="200"
+                              HorizontalAlignment="Left"
                               Margin="0,4,0,12"/>
 					<TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12">
                         Приложение требует прав администратора и будет сворачиваться в системный трей при закрытии окна.
