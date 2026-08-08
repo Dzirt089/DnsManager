@@ -44,7 +44,7 @@ jobs:
       - name: Sign files via SignPath
         shell: pwsh
         env:
-          SIGNPATH API TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
         run: |
           # 1. Пакуем файлы в архив
           Compress-Archive -Path publish\* -DestinationPath app.zip
@@ -63,7 +63,7 @@ jobs:
             -WaitForCompletion
 
           # 4. Распаковываем подписанные файлы в новую папку
-          Expand-Archive -Path signed app.zip -DestinationPath publish_signed -Force
+          Expand-Archive -Path signed_app.zip -DestinationPath publish_signed -Force
 
       - name: Install Velopack CLI
         run: dotnet tool install --global vpk
