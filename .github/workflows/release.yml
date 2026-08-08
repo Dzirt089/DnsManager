@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: 
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest # WPF собирается только на Windows
+    steps:
+         # Скачиваем исходный код на VM GitHub
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+         # Устанавливаем нужную версию
+      - name: Setup .Net SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+          # Сборка + тесты (релиз не выйдет, если тесты красные).
+      - name: Build and Test
+        run: |
+          dotnet build -c Release
+          dotnet test --no-build -c Release
+
+          # `dotnet publish` — self-contained `win-x64` без single-file (Velopack нужно  
+          # «нормальное» приложение из файлов, single-file не поддерживается).  
+          # `-p:Version=$version` — версия exe совпадает с тегом (`v1.0.0` → `1.0.0`).
+      - name: Publish
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          dotnet publish src/DnsManager.App/DnsManager.App.csproj -c Release '
+            -r win-x64 --self-contained true ' 
+            -p:PublishSingleFile=false '
+            -p:Version=$version '
+            -o publish
+
+      - name: Install Velopack CLI
+        run: dotnet tool install --global vpk
+
+        #`vpk pack` создаёт в папке `releases`:
+        # - `Setup.exe` — установщик для пользователей;
+        # - `RELEASES` — манифест обновлений;
+        # - `DnsManager.App-1.0.0-full.nupkg` (+ дельта-пакеты для будущих версий).    
+      - name: Pack with vpk
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          vpk pack '
+            --packId "DnsManager.App" '
+            --packVersion $version '
+            --packDir publish '
+            --mainExe "DnsManager.App.exe" '
+            --outputDir releases '
+            --icon "src/DnsManager.App/Assets/app.ico"
+
+        #`gh release create ... releases/*` — загружает все три файла в GitHub Release с авто-описанием.
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create "${{ github.ref_name }}" releases/* --generate-notes

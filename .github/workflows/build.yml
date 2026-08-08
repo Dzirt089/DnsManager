@@ -3,18 +3,20 @@ name: .Net WPF Build
 on:
   push:
     branches: ["main", "master"] # При любом пуше в эти ветки или PR
+  pull_request:
+    branches: ["main", "master"]
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-latest # WPF собирается только на Windows
 
     steps:
     # Шаг 1: Скачиваем исходный код на VM GitHub
-    - name: Chekout repository
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     # Шаг 2: Устанавливаем нужную версию
-    - name: Setup .Net
+    - name: Setup .Net SDK
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '10.0.x'
@@ -27,7 +29,11 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release --no-restore
 
-    # Шаг 5: Публикация (создание готового .exe файла)
+    # Шаг 5: Запускаем тесты (если есть)
+    - name: Test
+      run: dotnet test --no-build -c Release
+
+    # Шаг 6: Публикация (создание готового .exe файла)
     # Здесь вам нужно указать путь к вашему главному .csproj файлу (вместо src/DnsManager/DnsManager.csproj
     # Параметры:
     # -r win-x64 : собираем под 64-битную Windows
@@ -36,7 +42,7 @@ jobs:
     - name: Publish
       run: dotnet publish src/DnsManager.App/DnsManager.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish_output
 
-    # Шаг 6: Загружаем результат (артефакт), чтобы можно было скачать его с сайта GiHub
+    # Шаг 7: Загружаем результат (артефакт), чтобы можно было скачать его с сайта GiHub
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:

@@ -12,6 +12,8 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 
+using Velopack;
+
 namespace DnsManager.App;
 
 public partial class App : Application
@@ -26,6 +28,7 @@ public partial class App : Application
 
 	protected override void OnStartup(StartupEventArgs e)
 	{
+		VelopackApp.Build().Run(); // первым — обрабатывает обновления/первый запуск
 		base.OnStartup(e);
 
 		// Настройки окна и тема — до создания окна, чтобы применить размеры и кисти при первом рендере.

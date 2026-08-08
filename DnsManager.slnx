@@ -1,4 +1,9 @@
 <Solution>
+  <Folder Name="/common/">
+    <File Path=".github/workflows/build.yml" />
+    <File Path=".github/workflows/release.yml" />
+    <File Path="README.md" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/DnsManager.App/DnsManager.App.csproj" />
     <Project Path="src/DnsManager.Core/DnsManager.Core.csproj" />

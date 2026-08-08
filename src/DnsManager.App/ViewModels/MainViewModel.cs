@@ -12,6 +12,8 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 
+using Velopack;
+
 namespace DnsManager.App.ViewModels;
 
 /// <summary>Главная VM: адаптеры, переключение DNS (DHCP &lt;-&gt; ручной), состояние, автозапуск.</summary>
@@ -21,6 +23,7 @@ public sealed partial class MainViewModel : ObservableObject
 	private readonly IDnsService _dns;
 	private readonly ILogService _log;
 	private readonly AutostartService _autostart;
+	private const string UpdateFeedUrl = "https://github.com/Dzirt089/DnsManager/releases/latest/download";
 
 	public PresetsViewModel Presets { get; }
 	public ResolutionViewModel Resolution { get; }
@@ -203,6 +206,30 @@ public sealed partial class MainViewModel : ObservableObject
 		_log.Info(LogEvents.AutostartToggle,
 			IsAutostartEnabled ? "Автозапуск при входе в Windows включён." : "Автозапуск при входе в Windows выключен.",
 			("Enabled", IsAutostartEnabled));
+	}
+
+	[RelayCommand]
+	private async Task CheckForUpdateAsync()
+	{
+		try
+		{
+			var mgr = new UpdateManager(UpdateFeedUrl);
+			var update = await mgr.CheckForUpdatesAsync();
+			if (update is null)
+			{
+				StatusBarText = "Установлена актуальная версия.";
+				return;
+			}
+
+			StatusBarText = "Скачивание обновления...";
+			await mgr.DownloadUpdatesAsync(update);
+			mgr.ApplyUpdatesAndRestart(null);   // закрывает приложение и ставит обновление
+		}
+		catch (Exception ex)
+		{
+			_log.Error("update.check", $"Не удалось проверить обновления: {ex.Message}", ex);
+			StatusBarText = "Ошибка проверки обновлений";
+		}
 	}
 
 	[RelayCommand]
