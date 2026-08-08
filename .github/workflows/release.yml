@@ -34,10 +34,10 @@ jobs:
         shell: pwsh
         run: |
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
-          dotnet publish src/DnsManager.App/DnsManager.App.csproj -c Release '
-            -r win-x64 --self-contained true ' 
-            -p:PublishSingleFile=false '
-            -p:Version=$version '
+          dotnet publish src/DnsManager.App/DnsManager.App.csproj -c Release `
+            -r win-x64 --self-contained true `
+            -p:PublishSingleFile=false `
+            -p:Version=$version `
             -o publish
 
       - name: Install Velopack CLI
@@ -52,11 +52,11 @@ jobs:
         run: |
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
           vpk pack '
-            --packId "DnsManager.App" '
-            --packVersion $version '
-            --packDir publish '
-            --mainExe "DnsManager.App.exe" '
-            --outputDir releases '
+            --packId "DnsManager.App" `
+            --packVersion $version `
+            --packDir publish `
+            --mainExe "DnsManager.App.exe" `
+            --outputDir releases `
             --icon "src/DnsManager.App/Assets/app.ico"
 
         #`gh release create ... releases/*` — загружает все три файла в GitHub Release с авто-описанием.
