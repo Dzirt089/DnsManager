@@ -7,9 +7,9 @@ namespace DnsManager.App.Converters;
 /// <summary>bool → Visibility (true = Visible, false = Collapsed).</summary>
 public sealed class BoolToVisibilityConverter : IValueConverter
 {
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is true ? Visibility.Visible : Visibility.Collapsed;
+	public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+		value is true ? Visibility.Visible : Visibility.Collapsed;
 
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is Visibility.Visible;
+	public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+		value is Visibility.Visible;
 }
