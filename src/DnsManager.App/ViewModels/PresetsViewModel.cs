@@ -20,6 +20,10 @@ public sealed partial class PresetsViewModel : ObservableObject
 	[ObservableProperty]
 	private DnsPreset? _selectedPreset;
 
+	/// <summary>Профиль по умолчанию: помеченный IsDefault, иначе первый, иначе пресет из ТЗ.</summary>
+	public DnsPreset DefaultPreset =>
+		Presets.FirstOrDefault(p => p.IsDefault) ?? Presets.FirstOrDefault() ?? DnsPreset.Default();
+
 	public PresetsViewModel(IPresetStore store, ILogService log)
 	{
 		_store = store;
@@ -67,10 +71,28 @@ public sealed partial class PresetsViewModel : ObservableObject
 	{
 		if (preset is null || Presets.Count <= 1)
 			return;
+		var wasDefault = preset.IsDefault;
 		Presets.Remove(preset);
 		SelectedPreset = Presets.FirstOrDefault();
+		if (wasDefault && Presets.Count > 0)
+			Presets[0].IsDefault = true;
 		Save();
 		_log.Info(LogEvents.PresetDelete, $"Пресет «{preset.Name}» удалён.", ("Preset", preset.Name));
+	}
+
+	/// <summary>Делает выбранный профиль профилем по умолчанию (сбрасывает остальные).</summary>
+	[RelayCommand]
+	private void SetDefaultPreset()
+	{
+		if (SelectedPreset is null || SelectedPreset.IsDefault)
+			return;
+
+		foreach (var preset in Presets)
+			preset.IsDefault = false;
+		SelectedPreset.IsDefault = true;
+		Save();
+		_log.Info(LogEvents.PresetSetDefault, $"Профиль «{SelectedPreset.Name}» назначен профилем по умолчанию.",
+			("Preset", SelectedPreset.Name));
 	}
 
 	[RelayCommand]

@@ -31,12 +31,36 @@ public sealed class PresetStore : IPresetStore
 		{
 			var json = File.ReadAllText(_filePath);
 			var presets = JsonSerializer.Deserialize<List<DnsPreset>>(json);
-			return presets is { Count: > 0 } ? presets : [DnsPreset.Default()];
+			return presets is { Count: > 0 } ? EnsureSingleDefault(presets) : [DnsPreset.Default()];
 		}
 		catch (JsonException)
 		{
 			return [DnsPreset.Default()];
 		}
+	}
+
+	/// <summary>Гарантирует ровно один default-профиль: если нет — назначает первый, если несколько — оставляет первый.</summary>
+	private List<DnsPreset> EnsureSingleDefault(List<DnsPreset> presets)
+	{
+		var firstDefault = presets.FirstOrDefault(p => p.IsDefault);
+		if (firstDefault is null)
+		{
+			presets[0].IsDefault = true;
+			Save(presets);
+			return presets;
+		}
+
+		var changed = false;
+		foreach (var preset in presets.Where(p => p != firstDefault && p.IsDefault))
+		{
+			preset.IsDefault = false;
+			changed = true;
+		}
+
+		if (changed)
+			Save(presets);
+
+		return presets;
 	}
 
 	public void Save(IEnumerable<DnsPreset> presets)

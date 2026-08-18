@@ -15,6 +15,7 @@ public class PresetStoreTests
 
 		Assert.Single(presets);
 		Assert.Equal(DnsPreset.Default().Name, presets[0].Name);
+		Assert.True(presets[0].IsDefault);
 		Assert.Equal(2, presets[0].Servers.Count);
 		Assert.True(File.Exists(store.FilePath));
 
@@ -31,6 +32,7 @@ public class PresetStoreTests
 		var custom = new DnsPreset
 		{
 			Name = "Cloudflare",
+			IsDefault = true,
 			Servers =
 			[
 				new DnsServerSetting { Address = "1.1.1.1", DohEnabled = true, AllowFallbackToUdp = false },
@@ -43,6 +45,7 @@ public class PresetStoreTests
 
 		var preset = Assert.Single(loaded);
 		Assert.Equal("Cloudflare", preset.Name);
+		Assert.True(preset.IsDefault);
 		Assert.Equal(2, preset.Servers.Count);
 		Assert.True(preset.Servers[0].DohEnabled);
 		Assert.False(preset.Servers[0].AllowFallbackToUdp);
@@ -62,6 +65,45 @@ public class PresetStoreTests
 		var presets = store.Load();
 
 		Assert.Single(presets);
+		Assert.True(presets[0].IsDefault);
+
+		Directory.Delete(dir, recursive: true);
+	}
+
+	[Fact]
+	public void Load_WhenNoDefault_MarksFirstAsDefault()
+	{
+		var dir = Path.Combine(Path.GetTempPath(), "dnsmanager-tests", Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(dir);
+		var store = new PresetStore(dir);
+		store.Save([
+			new DnsPreset { Name = "First" },
+			new DnsPreset { Name = "Second" }
+		]);
+
+		var loaded = new PresetStore(dir).Load();
+
+		Assert.True(loaded[0].IsDefault);
+		Assert.False(loaded[1].IsDefault);
+
+		Directory.Delete(dir, recursive: true);
+	}
+
+	[Fact]
+	public void Load_WhenMultipleDefaults_KeepsFirstOnly()
+	{
+		var dir = Path.Combine(Path.GetTempPath(), "dnsmanager-tests", Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(dir);
+		var store = new PresetStore(dir);
+		store.Save([
+			new DnsPreset { Name = "First", IsDefault = true },
+			new DnsPreset { Name = "Second", IsDefault = true }
+		]);
+
+		var loaded = new PresetStore(dir).Load();
+
+		Assert.True(loaded[0].IsDefault);
+		Assert.False(loaded[1].IsDefault);
 
 		Directory.Delete(dir, recursive: true);
 	}

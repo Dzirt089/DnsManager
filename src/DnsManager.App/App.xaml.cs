@@ -21,6 +21,7 @@ public partial class App : Application
 	private MainWindow? _window;
 	private MainViewModel? _vm;
 	private LogService? _log;
+	private DnsScheduleService? _schedule;
 	private TaskbarIcon? _tray;
 	private UiSettings _uiSettings = new();
 	private UiSettingsStore? _uiSettingsStore;
@@ -41,12 +42,14 @@ public partial class App : Application
 		var runner = new ProcessPowerShellRunner();
 		var networkService = new NetworkService(runner);
 		var dnsService = new DnsService(runner, _log);
+		_schedule = new DnsScheduleService(dnsService, networkService, _log);
 
 		var presetsVm = new PresetsViewModel(new PresetStore(), _log);
 		var resolutionVm = new ResolutionViewModel(new DnsResolver(), _log);
 		var benchmarkVm = new BenchmarkViewModel(new DnsBenchmarkService(), _log);
 
 		_vm = new MainViewModel(networkService, dnsService, _log, new AutostartService(),
+			_uiSettings, _uiSettingsStore, _schedule,
 			presetsVm, resolutionVm, benchmarkVm);
 
 		_window = new MainWindow(_uiSettings, _uiSettingsStore) { DataContext = _vm };
@@ -56,8 +59,8 @@ public partial class App : Application
 		SetupTray();
 		_log.Info(LogEvents.AppStartup, "Приложение запущено. Требуются права администратора.");
 
-		// Первичная загрузка адаптеров.
-		_ = _vm.RefreshAdaptersCommand.ExecuteAsync(null);
+		// Первичная загрузка адаптеров, автовключение DNS при старте; расписание уже настроено в VM.
+		_ = _vm.InitializeAsync();
 	}
 
 	private void SetupTray()
@@ -113,6 +116,7 @@ public partial class App : Application
 		_isExiting = true;
 		_window?.SaveSettings();
 		_tray?.Dispose();
+		_schedule?.Dispose();
 		_log?.Dispose();
 		Shutdown();
 	}

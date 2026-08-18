@@ -22,6 +22,8 @@ public class UiSettingsStoreTests
 		Assert.Equal(UiSettings.DefaultLogPanelHeight, settings.LogPanelHeight);
 		Assert.Equal(UiSettings.DefaultPresetListWidth, settings.PresetListWidth);
 		Assert.Equal(UiSettings.DefaultDnsPanelHeight, settings.DnsPanelHeight);
+		Assert.False(settings.ScheduledDhcpEnabled);
+		Assert.Equal(UiSettings.DefaultScheduledDhcpTimeMsk, settings.ScheduledDhcpTimeMsk);
 		Assert.False(File.Exists(store.FilePath));
 
 		if (Directory.Exists(dir))
@@ -44,7 +46,9 @@ public class UiSettingsStoreTests
 			Theme = UiTheme.Dark,
 			LogPanelHeight = 320,
 			PresetListWidth = 300,
-			DnsPanelHeight = 210
+			DnsPanelHeight = 210,
+			ScheduledDhcpEnabled = true,
+			ScheduledDhcpTimeMsk = new TimeSpan(17, 30, 0)
 		});
 
 		var loaded = new UiSettingsStore(dir).Load();
@@ -58,6 +62,8 @@ public class UiSettingsStoreTests
 		Assert.Equal(320, loaded.LogPanelHeight);
 		Assert.Equal(300, loaded.PresetListWidth);
 		Assert.Equal(210, loaded.DnsPanelHeight);
+		Assert.True(loaded.ScheduledDhcpEnabled);
+		Assert.Equal(new TimeSpan(17, 30, 0), loaded.ScheduledDhcpTimeMsk);
 
 		Directory.Delete(dir, recursive: true);
 	}
@@ -74,6 +80,8 @@ public class UiSettingsStoreTests
 
 		Assert.Equal(UiTheme.Light, settings.Theme);
 		Assert.Equal(UiSettings.DefaultWindowWidth, settings.WindowWidth);
+		Assert.False(settings.ScheduledDhcpEnabled);
+		Assert.Equal(UiSettings.DefaultScheduledDhcpTimeMsk, settings.ScheduledDhcpTimeMsk);
 
 		Directory.Delete(dir, recursive: true);
 	}

@@ -7,6 +7,7 @@ namespace DnsManager.Core.Models;
 public sealed class DnsPreset : INotifyPropertyChanged
 {
 	private string _name = "";
+	private bool _isDefault;
 
 	public Guid Id { get; init; } = Guid.NewGuid();
 
@@ -23,6 +24,20 @@ public sealed class DnsPreset : INotifyPropertyChanged
 		}
 	}
 
+	/// <summary>Признак профиля по умолчанию; в хранилище гарантируется ровно один такой профиль.</summary>
+	public bool IsDefault
+	{
+		get => _isDefault;
+		set
+		{
+			if (_isDefault != value)
+			{
+				_isDefault = value;
+				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsDefault)));
+			}
+		}
+	}
+
 	public ObservableCollection<DnsServerSetting> Servers { get; init; } = [];
 
 	public event PropertyChangedEventHandler? PropertyChanged;
@@ -31,6 +46,7 @@ public sealed class DnsPreset : INotifyPropertyChanged
 	public static DnsPreset Default() => new()
 	{
 		Name = "111.88.96.50/51 (по умолчанию)",
+		IsDefault = true,
 		Servers =
 		[
 			DnsServerSetting.PrimaryProfile("111.88.96.50"),

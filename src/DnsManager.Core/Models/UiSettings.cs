@@ -19,6 +19,9 @@ public sealed class UiSettings
 	public const double DefaultPresetListWidth = 240;
 	public const double DefaultDnsPanelHeight = 190;
 
+	/// <summary>Время автоотключения DNS по умолчанию — 16:55 по МСК.</summary>
+	public static readonly TimeSpan DefaultScheduledDhcpTimeMsk = new(16, 55, 0);
+
 	public double WindowWidth { get; set; } = DefaultWindowWidth;
 	public double WindowHeight { get; set; } = DefaultWindowHeight;
 
@@ -36,4 +39,10 @@ public sealed class UiSettings
 	public double PresetListWidth { get; set; } = DefaultPresetListWidth;
 
 	public double DnsPanelHeight { get; set; } = DefaultDnsPanelHeight;
+
+	/// <summary>Включено ли ежедневное автоотключение DNS (переход в DHCP).</summary>
+	public bool ScheduledDhcpEnabled { get; set; }
+
+	/// <summary>Время автоотключения DNS по МСК (например, 16:55).</summary>
+	public TimeSpan ScheduledDhcpTimeMsk { get; set; } = DefaultScheduledDhcpTimeMsk;
 }

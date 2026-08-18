@@ -130,12 +130,34 @@
                         <TextBlock Grid.Row="0" Text="DNS-профили" Style="{StaticResource SectionHeader}" />
                         <ListBox Grid.Row="1" ItemsSource="{Binding Presets.Presets}"
                                  SelectedItem="{Binding Presets.SelectedPreset}"
-                                 DisplayMemberPath="Name"
-                                 MouseDoubleClick="PresetsList_MouseDoubleClick" />
+                                 MouseDoubleClick="PresetsList_MouseDoubleClick">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}" />
+                                        <TextBlock Text=" (по умолчанию)">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDefault}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
                             <Button Content="Добавить" Command="{Binding Presets.AddPresetCommand}" Padding="10,4" />
                             <Button Content="Удалить" Command="{Binding Presets.DeletePresetCommand}"
                                     CommandParameter="{Binding Presets.SelectedPreset}" Padding="10,4" Margin="8,0,0,0" />
+                            <Button Content="По умолчанию" Command="{Binding Presets.SetDefaultPresetCommand}"
+                                    Padding="10,4" Margin="8,0,0,0" />
                         </StackPanel>
                         <TextBlock Grid.Row="3" Text="Минимум один пресет. Изменения сохраняются автоматически."
                                    TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" Margin="0,8,0,0" />
@@ -265,6 +287,18 @@
                               Width="200"
                               HorizontalAlignment="Left"
                               Margin="0,4,0,12"/>
+					<StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+						<CheckBox Content="Автоматически отключать DNS в"
+                                  IsChecked="{Binding IsScheduledDhcpEnabled}"
+                                  VerticalAlignment="Center" />
+						<TextBox Text="{Binding ScheduledDhcpTimeText, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="60" Height="26" Margin="6,0,4,0"
+                                 VerticalContentAlignment="Center" />
+						<TextBlock Text="МСК" VerticalAlignment="Center" />
+					</StackPanel>
+					<TextBlock Text="{Binding ScheduledDhcpCountdownText}"
+                               Margin="24,0,0,12"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
 					<TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12">
                         Приложение требует прав администратора и будет сворачиваться в системный трей при закрытии окна.
                         Выход — через меню иконки в трее.

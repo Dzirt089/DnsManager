@@ -11,6 +11,8 @@ using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
+using System.Windows;
+using System.Windows.Threading;
 
 using Velopack;
 
@@ -23,6 +25,11 @@ public sealed partial class MainViewModel : ObservableObject
 	private readonly IDnsService _dns;
 	private readonly ILogService _log;
 	private readonly AutostartService _autostart;
+	private readonly UiSettings _uiSettings;
+	private readonly UiSettingsStore _uiSettingsStore;
+	private readonly DnsScheduleService _schedule;
+	private readonly DispatcherTimer _countdownTimer;
+	private bool _suppressScheduleSave;
 	private const string UpdateFeedUrl = "https://github.com/Dzirt089/DnsManager/releases/latest/download";
 
 	public PresetsViewModel Presets { get; }
@@ -48,6 +55,15 @@ public sealed partial class MainViewModel : ObservableObject
 	private bool _isAutostartEnabled;
 
 	[ObservableProperty]
+	private bool _isScheduledDhcpEnabled;
+
+	[ObservableProperty]
+	private string _scheduledDhcpTimeText = "";
+
+	[ObservableProperty]
+	private string _scheduledDhcpCountdownText = "Расписание выключено";
+
+	[ObservableProperty]
 	private string _statusBarText = "Готово";
 
 	public MainViewModel(
@@ -55,6 +71,9 @@ public sealed partial class MainViewModel : ObservableObject
 		IDnsService dns,
 		LogService log,
 		AutostartService autostart,
+		UiSettings uiSettings,
+		UiSettingsStore uiSettingsStore,
+		DnsScheduleService schedule,
 		PresetsViewModel presets,
 		ResolutionViewModel resolution,
 		BenchmarkViewModel benchmark)
@@ -63,11 +82,117 @@ public sealed partial class MainViewModel : ObservableObject
 		_dns = dns;
 		_log = log;
 		_autostart = autostart;
+		_uiSettings = uiSettings;
+		_uiSettingsStore = uiSettingsStore;
+		_schedule = schedule;
 		Presets = presets;
 		Resolution = resolution;
 		Benchmark = benchmark;
 		Logs = log.Entries;
 		IsAutostartEnabled = autostart.IsEnabled();
+		_suppressScheduleSave = true;
+		IsScheduledDhcpEnabled = uiSettings.ScheduledDhcpEnabled;
+		ScheduledDhcpTimeText = FormatTime(uiSettings.ScheduledDhcpTimeMsk);
+		_suppressScheduleSave = false;
+
+		_countdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+		_countdownTimer.Tick += (_, _) => UpdateScheduleCountdown();
+		_schedule.NextTriggerChanged += (_, _) => DispatchScheduleCountdownUpdate();
+		_schedule.Update(uiSettings);
+		UpdateScheduleCountdown();
+		_countdownTimer.Start();
+	}
+
+	partial void OnIsScheduledDhcpEnabledChanged(bool value)
+	{
+		if (_suppressScheduleSave)
+			return;
+		SaveScheduleSettings();
+	}
+
+	partial void OnScheduledDhcpTimeTextChanged(string value)
+	{
+		if (_suppressScheduleSave)
+			return;
+
+		if (TryParseTime(value, out var time))
+		{
+			_uiSettings.ScheduledDhcpTimeMsk = time;
+			SaveScheduleSettings();
+		}
+		else
+		{
+			UpdateScheduleCountdown();
+		}
+	}
+
+	private void SaveScheduleSettings()
+	{
+		_uiSettings.ScheduledDhcpEnabled = IsScheduledDhcpEnabled;
+		if (TryParseTime(ScheduledDhcpTimeText, out var time))
+			_uiSettings.ScheduledDhcpTimeMsk = time;
+
+		_uiSettingsStore.Save(_uiSettings);
+		_schedule.Update(_uiSettings);
+		_log.Info(LogEvents.DnsScheduleToggle,
+			IsScheduledDhcpEnabled
+				? $"Расписание автоотключения DNS включено: {FormatTime(_uiSettings.ScheduledDhcpTimeMsk)} МСК."
+				: "Расписание автоотключения DNS выключено.",
+			("Enabled", IsScheduledDhcpEnabled), ("TimeMsk", _uiSettings.ScheduledDhcpTimeMsk));
+		UpdateScheduleCountdown();
+	}
+
+	private void UpdateScheduleCountdown()
+	{
+		if (!IsScheduledDhcpEnabled)
+		{
+			ScheduledDhcpCountdownText = "Расписание выключено";
+			return;
+		}
+
+		if (!TryParseTime(ScheduledDhcpTimeText, out var time))
+		{
+			ScheduledDhcpCountdownText = "Некорректное время, используйте ЧЧ:ММ";
+			return;
+		}
+
+		var next = _schedule.NextTriggerUtc;
+		if (next is null)
+		{
+			ScheduledDhcpCountdownText = $"Ожидание следующего дня ({FormatTime(time)} МСК)";
+			return;
+		}
+
+		var remaining = next.Value - DateTimeOffset.UtcNow;
+		if (remaining <= TimeSpan.Zero)
+		{
+			ScheduledDhcpCountdownText = $"Ожидание следующего дня ({FormatTime(time)} МСК)";
+			return;
+		}
+
+		ScheduledDhcpCountdownText = $"До отключения: {remaining:hh\\:mm\\:ss} ({FormatTime(time)} МСК)";
+	}
+
+	private void DispatchScheduleCountdownUpdate()
+	{
+		var dispatcher = Application.Current?.Dispatcher;
+		if (dispatcher is null || dispatcher.CheckAccess())
+			UpdateScheduleCountdown();
+		else
+			dispatcher.Invoke(UpdateScheduleCountdown);
+	}
+
+	private static string FormatTime(TimeSpan time) => $"{time.Hours:00}:{time.Minutes:00}";
+
+	private static bool TryParseTime(string? text, out TimeSpan time)
+	{
+		time = default;
+		if (string.IsNullOrWhiteSpace(text))
+			return false;
+		if (!TimeSpan.TryParseExact(text.Trim(), @"hh\:mm", null, out var parsed))
+			return false;
+		time = parsed;
+		return true;
 	}
 
 	partial void OnSelectedAdapterChanged(NetworkAdapterInfo? value)
@@ -116,6 +241,54 @@ public sealed partial class MainViewModel : ObservableObject
 		{
 			_log.Error(LogEvents.AdaptersResult, $"Не удалось получить адаптеры: {ex.Message}", ex);
 			StatusBarText = "Ошибка загрузки адаптеров";
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	/// <summary>Стартовая инициализация: загрузка адаптеров, автовключение DNS, если он в DHCP.</summary>
+	public async Task InitializeAsync()
+	{
+		await RefreshAdaptersAsync(CancellationToken.None);
+		await AutoEnableDnsOnStartupAsync();
+	}
+
+	private async Task AutoEnableDnsOnStartupAsync()
+	{
+		if (SelectedAdapter is null || !SelectedAdapter.IsActive)
+		{
+			_log.Warn(LogEvents.DnsStartupAutoEnable, "Активный адаптер не найден — автовключение DNS при старте пропущено.");
+			return;
+		}
+
+		try
+		{
+			var state = await _dns.GetStateAsync(SelectedAdapter);
+			if (!state.IsDhcp)
+			{
+				_log.Info(LogEvents.DnsStartupAutoEnable,
+					"DNS уже включён — автовключение при старте пропущено.",
+					("Adapter", SelectedAdapter.Name), ("InterfaceIndex", SelectedAdapter.InterfaceIndex));
+				return;
+			}
+
+			var preset = Presets.DefaultPreset;
+			_log.Info(LogEvents.DnsStartupAutoEnable,
+				$"DNS в режиме DHCP — включаю профиль по умолчанию «{preset.Name}».",
+				("Adapter", SelectedAdapter.Name), ("InterfaceIndex", SelectedAdapter.InterfaceIndex),
+				("Preset", preset.Name));
+
+			IsBusy = true;
+			StatusBarText = "Автовключение DNS...";
+			var ok = await _dns.EnableManualAsync(SelectedAdapter, preset);
+			StatusBarText = ok ? "DNS включён автоматически при старте" : "Ошибка автовключения DNS";
+			await RefreshStateCommand.ExecuteAsync(CancellationToken.None);
+		}
+		catch (Exception ex)
+		{
+			_log.Error(LogEvents.DnsStartupAutoEnable, $"Ошибка автовключения DNS при старте: {ex.Message}", ex);
 		}
 		finally
 		{
