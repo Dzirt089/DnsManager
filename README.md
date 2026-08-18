@@ -4,7 +4,7 @@
 
 <a id="english"></a>
 # DNS Manager
-
+ 
 Desktop application for Windows 11 (WPF, .NET 10, C#). It detects the active network adapter (Wi-Fi / Ethernet, etc.) and switches its DNS between "Automatic (DHCP)" mode and a manual profile:
 
 - **Preferred DNS (IPv4):** `111.88.96.50` — DNS over HTTPS is **enabled** (automatic template), fallback to plaintext is **disabled**.
